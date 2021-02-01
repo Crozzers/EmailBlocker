@@ -3,6 +3,7 @@ Deletes emails from blacklisted addresses (Gmail only)
 
 Are you a student? Do you have a school/college email? Are you tired of recieving borderline spam emails from your place of education?
 Does your school's GSuite policies make it impossible for you to actually block people?
+![Tired of this?](spam-notice.png)
 
 Well I (possibly) have a solution for you! This program will run through your inbox and delete all emails from certain email addresses.
 
@@ -19,8 +20,8 @@ If your school has had the common sense to lock this setting down then I'm sorry
 
 ## Running the program
 * Open the folder you downloaded the program to
-* Double click the "setup.bat" file. This will move all the files into the right places so that the program can run
-* Double click on "EmailBlocker.bat" to run the program
+* Double click the `setup.bat` file. This will move all the files into the right places so that the program can run
+* Double click on `EmailBlocker.bat` to run the program
 
 If you want to read the source code for this program it is contained within the '.py' files.
 

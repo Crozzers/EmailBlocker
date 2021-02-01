@@ -79,7 +79,7 @@ class Window():
             self.basedir = os.path.dirname(__file__)
         self.root = tk.Tk()
         #self.root.geometry('450x600')
-        self.root.title('Email Blocker v0.3.0 - By Crozzers')
+        self.root.title('Email Blocker v0.4.0 - By Crozzers')
 
         dk = {'side':'top', 'fill':'x', 'expand':True, 'anchor':'nw'}
 
