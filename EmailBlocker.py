@@ -1,6 +1,8 @@
 import argparse, sys
 import filter_emails
 
+__version__='0.4.0'
+
 if __name__=='__main__':
     if len(sys.argv)==1:
         import gui

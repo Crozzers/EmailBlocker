@@ -3,6 +3,7 @@ from tkinter import messagebox
 from tkinter import font as tkFont
 import filter_emails
 import json, os, sys, shutil, threading
+from EmailBlocker import __version__
 
 def quick_thread(target, *args, autostart=True, **kwargs):
     t = threading.Thread(target=target, args=args, kwargs=kwargs, daemon=True)
@@ -79,7 +80,7 @@ class Window():
             self.basedir = os.path.dirname(__file__)
         self.root = tk.Tk()
         #self.root.geometry('450x600')
-        self.root.title('Email Blocker v0.4.0 - By Crozzers')
+        self.root.title(f'Email Blocker v{__version__} - By Crozzers')
 
         dk = {'side':'top', 'fill':'x', 'expand':True, 'anchor':'nw'}
 
