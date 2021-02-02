@@ -20,7 +20,6 @@ If your school has had the common sense to lock this setting down then I'm sorry
 
 ## Running the program
 * Open the folder you downloaded the program to
-* Double click the `setup.bat` file. This will move all the files into the right places so that the program can run
 * Double click on `EmailBlocker.bat` to run the program
 
 If you want to read the source code for this program it is contained within the '.py' files.
