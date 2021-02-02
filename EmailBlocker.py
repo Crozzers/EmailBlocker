@@ -1,7 +1,8 @@
-import argparse, sys
+import argparse, sys, os
+sys.path.append(os.path.dirname(__file__))
 import filter_emails
 
-__version__='0.4.0'
+__version__='0.5.0-dev'
 
 if __name__=='__main__':
     if len(sys.argv)==1:
@@ -9,7 +10,7 @@ if __name__=='__main__':
         window = gui.Window()
         window.root.mainloop()
     else:
-        parser = argparse.ArgumentParser(description='Automatically deletes annoying emails from people you can\'t block')
+        parser = argparse.ArgumentParser(description='Deletes annoying emails from people you can\'t block')
 
         parser.add_argument('email', type=str, help='Your email address')
         parser.add_argument('password', type=str, help='Your password')

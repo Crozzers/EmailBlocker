@@ -2,7 +2,7 @@ import argparse, sys
 import filter_emails
 
 if __name__=='__main__':
-    parser = argparse.ArgumentParser(description='Automatically deletes annoying emails from people you can\'t block')
+    parser = argparse.ArgumentParser(description='Deletes annoying emails from people you can\'t block')
 
     parser.add_argument('email', type=str, help='Your email address')
     parser.add_argument('password', type=str, help='Your password')

@@ -74,18 +74,22 @@ class WrappingLabel(tk.Label):
 
 class Window():
     def __init__(self):
-        if getattr(sys, 'frozen', None):
-            self.basedir = sys._MEIPASS
-        else:
-            self.basedir = os.path.dirname(__file__)
+        self.basedir = os.path.dirname(__file__)
+        self.running = False
         self.root = tk.Tk()
-        #self.root.geometry('450x600')
-        self.root.title(f'Email Blocker v{__version__} - By Crozzers')
+        self.root.title(f'EmailBlocker v{__version__} - By Crozzers')
 
         dk = {'side':'top', 'fill':'x', 'expand':True, 'anchor':'nw'}
 
+        # create top menu toolbar
+        # self.menubar = tk.Menu(self.root)
+        # self.root.config(menu=self.menubar)
+        # upmenu = tk.Menu(self.menubar)
+        # upmenu.add_command(label='Check for updates', command=lambda:quick_thread(self.check_for_update))
+        # self.menubar.add_cascade(label='Options', menu=upmenu)
+
         self.credentials_frame = tk.LabelFrame(self.root, text='Your credentials')
-        self.credentials_frame.pack(**dk)
+        self.credentials_frame.pack(pady=(5,0), **dk)
 
         WrappingLabel(self.credentials_frame, text='Your email address:', anchor='w').pack(pady=10, **dk)
         self.email_input = tk.Entry(self.credentials_frame)
@@ -108,16 +112,17 @@ class Window():
         tk.Button(self.actions_frame, text='Save these settings', command=self.save_settings, relief='groove').pack(pady=(5,2), **dk)
         tk.Button(self.actions_frame, text='Load saved settings', command=lambda:self.load_settings(True), relief='groove').pack(pady=(0,5), **dk)
         self.load_settings_at_launch = tk.BooleanVar()
-        self.load_settings_check = tk.Checkbutton(self.actions_frame, text='Load your saved settings at startup', variable=self.load_settings_at_launch)
+        self.load_settings_check = tk.Checkbutton(self.actions_frame, text='Load your saved settings on launch', variable=self.load_settings_at_launch)
         self.load_settings_check.pack(pady=(0, 10), **dk)
         WrappingLabel(self.actions_frame,text='NOTICE: I offer no warranty of any kind with this program', bg='red').pack(**dk)
         self.run_button = tk.Button(self.actions_frame, text='Run', command=lambda:quick_thread(self.run), relief='groove')
         self.run_button.pack(pady=(5, 10), **dk)
 
-        self.run_at_startup_buton1 = tk.Button(self.actions_frame, text='Save these settings to run at startup', command=lambda:quick_thread(self.run_at_startup, 0), relief='groove')
-        self.run_at_startup_buton1.pack(pady=5, **dk)
-        self.run_at_startup_buton2 = tk.Button(self.actions_frame, text='Remove startup tasks', command=lambda:quick_thread(self.run_at_startup, 1), relief='groove')
-        self.run_at_startup_buton2.pack(pady=(0, 10), **dk)
+        if os.name=='nt':
+            self.run_at_startup_buton1 = tk.Button(self.actions_frame, text='Save these settings to run at startup', command=lambda:quick_thread(self.run_at_startup, 0), relief='groove')
+            self.run_at_startup_buton1.pack(pady=5, **dk)
+            self.run_at_startup_buton2 = tk.Button(self.actions_frame, text='Remove startup tasks', command=lambda:quick_thread(self.run_at_startup, 1), relief='groove')
+            self.run_at_startup_buton2.pack(pady=(0, 10), **dk)
 
         self.output_label = WrappingLabel(self.root)
         self.output_label.pack(**dk)
@@ -130,6 +135,7 @@ class Window():
             self.password_input.config(show='*')
     def run(self):
         try:
+            self.running=True
             self.run_button.config(state=tk.DISABLED)
             email, password, sender, load_at_startup = self.get_config()
             if email==False:
@@ -172,6 +178,7 @@ class Window():
             self.output(f'Failed: {e}', 'red')
         finally:
             self.run_button.config(state=tk.NORMAL)
+            self.running=False
     def save_settings(self):
         msg_box = messagebox.askyesno(
             title='IMPORTANT',
@@ -238,16 +245,17 @@ class Window():
     def run_at_startup(self, mode):
         self.run_at_startup_buton1.config(state=tk.DISABLED)
         self.run_at_startup_buton2.config(state=tk.DISABLED)
-        path = os.path.join(os.path.expanduser('~'), 'AppData/Roaming/Microsoft/Windows/Start Menu/Programs/').replace('\\','/')
-        exepath = path+'EmailBlockerLite/EmailBlockerLite.exe'
-        frompath = 'EmailBlockerLite'
-        if not os.path.isdir(frompath):
-            if os.path.isdir('EmailBlocker/'+frompath):
-                frompath = 'EmailBlocker/'+frompath
-            else:
-                self.output('Cannot create startup task: cannot find EmailBlockerLite', 'red')
-                return
-        
+        pjoin = os.path.join
+        isdir = os.path.isdir
+        isfile = os.path.isfile
+
+        endpath = os.path.join(os.path.expanduser('~'), 'AppData/Roaming/Microsoft/Windows/Start Menu/Programs/').replace('\\','/')
+        exepath = endpath+'EmailBlockerLite/EmailBlockerLite.py'
+        frompath = self.basedir
+        if not isfile(pjoin(frompath, 'EmailBlockerLite.exe')):
+            self.output('Cannot create startup task: cannot find EmailBlockerLite', 'red')
+            return
+
         if mode==0:
             try:
                 email, password, sender, load_at_startup = self.get_config()
@@ -262,25 +270,26 @@ class Window():
                     return
                 sender = ','.join(sender)
                 self.output('Copying EmailBlockerLite to AppData folder')
-                if not os.path.isdir(path+'EmailBlockerLite'):
-                    shutil.copytree(frompath, path+'EmailBlockerLite')
-                if not os.path.isfile(exepath):
-                    shutil.rmtree(path+'EmailBlockerLite')
-                    shutil.copytree(frompath, path+'EmailBlockerLite')
+                if not isdir(pjoin(endpath, 'EmailBlockerLite')):
+                    os.mkdir(pjoin(endpath, 'EmailBlockerLite'))
+                if not isfile(exepath):
+                    shutil.copyfile(pjoin(frompath, 'EmailBlockerLite.exe'), pjoin(endpath, 'EmailBlockerLite/EmailBlockerLite.exe'))
                 
                 self.output('Writing batch file in shell:startup dir')
-                with open(path+'Startup/EmailBlocker.bat', 'w', encoding='utf-8') as f:
+                with open(endpath+'Startup/EmailBlocker.bat', 'w', encoding='utf-8') as f:
                     f.write(
                         f'@echo off\nstart "EmailBlocker" "{exepath}" "{email}" "{password}" "{sender}"'
                     )
                 self.output('Startup task created!', 'green')
             except Exception as e:
+                import traceback
+                traceback.print_exc()
                 self.output(f'Failed to create startup task: {e}', 'red')
         else:
-            if os.path.isdir(path+'EmailBlockerLite'):
-                shutil.rmtree(path+'EmailBlockerLite')
-            if os.path.isfile(path+'Startup/EmailBlocker.bat'):
-                os.remove(path+'Startup/EmailBlocker.bat')
+            if isdir(pjoin(endpath, 'EmailBlockerLite')):
+                shutil.rmtree(pjoin(endpath, 'EmailBlockerLite'))
+            if isfile(pjoin(endpath, 'Startup/EmailBlocker.bat')):
+                os.remove(pjoin(endpath, 'Startup/EmailBlocker.bat'))
             self.output('Startup tasks removed!', 'green')
         self.run_at_startup_buton1.config(state=tk.NORMAL)
         self.run_at_startup_buton2.config(state=tk.NORMAL)

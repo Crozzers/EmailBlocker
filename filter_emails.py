@@ -1,15 +1,8 @@
-#coding: utf-8
 import imaplib, re
 
 '''
-Simple script that delete emails from a given sender
-params:
--username: Gmail username
--pw: gmail pw
--label: If you have a label that holds the emails, specify here
--sender: the target sender you want to delete
-usage: python delete_emails.py username='giovaneliberato@gmail.com' pw='bla' label='e-commerce' sender='spam@some-ecommerce.com'
-see http://stackoverflow.com/a/5366205 for mode details
+Created with inspiration from github user Giovane Liberato
+https://gist.github.com/giovaneliberato/b3ebce305262888633c1
 '''
 
 def email_valid(email):
