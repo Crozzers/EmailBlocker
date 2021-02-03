@@ -198,7 +198,7 @@ class Window():
         tk.Button(self.actions_frame, text='Save these settings', command=self.save_settings, relief='groove').pack(pady=(5,2), **dk)
         tk.Button(self.actions_frame, text='Load saved settings', command=lambda:self.load_settings(True), relief='groove').pack(pady=(0,5), **dk)
         self.load_settings_at_launch = tk.BooleanVar()
-        self.load_settings_check = tk.Checkbutton(self.actions_frame, text='Load your saved settings on launch', variable=self.load_settings_at_launch)
+        self.load_settings_check = tk.Checkbutton(self.actions_frame, text='Load your saved settings on launch', variable=self.load_settings_at_launch, command=lambda:self.save_settings(1))
         self.load_settings_check.pack(pady=(0, 10), **dk)
         WrappingLabel(self.actions_frame,text='NOTICE: I offer no warranty of any kind with this program', bg='red').pack(**dk)
         self.run_button = tk.Button(self.actions_frame, text='Run', command=lambda:quick_thread(self.run), relief='groove')
@@ -265,33 +265,44 @@ class Window():
         finally:
             self.run_button.config(state=tk.NORMAL)
             self.running=False
-    def save_settings(self):
-        msg_box = messagebox.askyesno(
-            title='IMPORTANT',
-            message='Your data will be stored in PLAIN text, no encryption and absolutely no security. Do you still wish to proceed?',
-            icon='warning'
-        )
-        if msg_box==True:
-            email, password, sender, load_at_startup = self.get_config()
-            if email==False:
-                self.output(f'Cannot save settings: Invalid email address', 'red')
-                return
-            if password=='':
-                self.output(f'Cannot save settings: Invalid password', 'red')
-                return
-            if not sender:
-                self.output(f'Cannot save settings: Invalid blocking list', 'red')
-                return
-            data = {
-                'user_email': email,
-                'user_password': password,
-                'blocked_emails': sender,
-                'load_settings_on_launch': load_at_startup
-            }
-            filepath = os.path.join(self.basedir, 'settings.json')
+    def save_settings(self, mode=None):
+        filepath = os.path.join(self.basedir, 'settings.json')
+        email, password, sender, load_at_startup = self.get_config()
+        if mode==None:
+            msg_box = messagebox.askyesno(
+                title='IMPORTANT',
+                message='Your data will be stored in PLAIN text, no encryption and absolutely no security. Do you still wish to proceed?',
+                icon='warning'
+            )
+            if msg_box==True:
+                if email==False:
+                    self.output(f'Cannot save settings: Invalid email address', 'red')
+                    return
+                if password=='':
+                    self.output(f'Cannot save settings: Invalid password', 'red')
+                    return
+                if not sender:
+                    self.output(f'Cannot save settings: Invalid blocking list', 'red')
+                    return
+                data = {
+                    'user_email': email,
+                    'user_password': password,
+                    'blocked_emails': sender,
+                    'load_settings_on_launch': load_at_startup
+                }
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    json.dump(data, f)
+                self.output(f'Settings saved!', 'green')
+        else:
+            # just saving the 'load on lauch' checkbox
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+            except:
+                settings = {}
+            settings['load_settings_on_launch'] = load_at_startup
             with open(filepath, 'w', encoding='utf-8') as f:
-                json.dump(data, f)
-            self.output(f'Settings saved!', 'green')
+                    json.dump(settings, f)
     def load_settings(self, override=False):
         try:
             filepath = os.path.join(self.basedir, 'settings.json')
