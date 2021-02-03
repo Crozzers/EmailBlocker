@@ -1,6 +1,7 @@
 # v0.5.0-dev
 Removed most pyinstaller compiled EXE's
 Added portable Python installation with pip and tkinter pre-installed
+Added basic updater
 
 # v0.4.0
 Created a toolchain to generate the executables, hopefully meaning the process will be far more reliable
@@ -12,7 +13,6 @@ Fixed not all emails being deleted (not my fault, it was gmail)
 Improved quality of the output label
 Made the zip file far more compact by deleting duplicate resources (and restoring them with EmailblockerSetup.exe)
 Added setup.bat for the setup script
-
 
 # v0.2.0
 GUI added

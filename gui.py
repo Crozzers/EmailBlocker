@@ -1,9 +1,13 @@
 import tkinter as tk
-from tkinter import messagebox
 from tkinter import font as tkFont
+from tkinter import messagebox
 import filter_emails
-import json, os, sys, shutil, threading
+import json, os, shutil, threading
 from EmailBlocker import __version__
+import urllib.request
+from packaging import version
+from time import sleep
+import zipfile
 
 def quick_thread(target, *args, autostart=True, **kwargs):
     t = threading.Thread(target=target, args=args, kwargs=kwargs, daemon=True)
@@ -72,6 +76,88 @@ class WrappingLabel(tk.Label):
         self.unbind_all('<Configure>')
         super().destroy(*args, **kwargs)
 
+def makeHTTPRequest(url):
+    try:
+        with urllib.request.urlopen(url) as url:
+            http=url.getcode()
+            try:
+                data=url.read().decode()
+            except:
+                data=None
+        return http,data
+    except urllib.error.URLError as e:
+        return False
+
+def conv_file_size(size):
+    size = size/1024#convert bytes to kb
+    suffix="KB"
+    if size/1024>=1:#1Mb or larger
+        size=size/1024
+        suffix="MB"
+        if size/1024>=1:#1Gb or larger
+            size=size/1024
+            suffix="GB"
+    size=str(size)
+    if "." in size:
+        size=size[:size.index(".")+3]
+    return size+suffix
+
+def get_file_size(file, raw=True):
+    if raw:
+        return os.path.getsize(file)
+    else:
+        size=os.path.getsize(file)
+        return conv_file_size(size)
+
+class Download():
+    def __init__(self,url,destination):
+        self.url = url
+        self.destination = destination
+        if os.path.isdir(self.destination):
+            self.destination = os.path.join(self.destination, os.path.basename(url))
+        self.is_started = False
+        self.is_finished = False
+        self.is_cancelled = False
+        self.length = None
+    def __download(self):
+        def listener(self, *args):
+            if self.is_cancelled:
+                raise Exception('Download cancelled')
+        try:
+            tmp = urllib.request.urlopen(self.url)
+            try:
+                self.length = int(tmp.info()['Content-Length'])
+            except:
+                sleep(0.5)
+                tmp = urllib.request.urlopen(self.url)
+                try:
+                    self.length = int(tmp.info()['Content-Length'])
+                except:
+                    self.length = 0
+            self.is_started=True
+            urllib.request.urlretrieve(self.url,self.destination, reporthook=lambda *args:listener(self, *args))
+        except Exception as e:
+            if str(e) != 'Download cancelled':
+                raise e
+        else:
+            self.is_finished=True
+    def download(self):
+        quick_thread(self.__download)
+    def cancel(self):
+        self.is_cancelled = True
+        os.remove(self.destination)
+    def progress(self):
+        if not os.path.isfile(self.destination):
+            return None
+        else:
+            return get_file_size(self.destination), get_file_size(self.destination, False)
+    def started(self):
+        return self.is_started
+    def finished(self):
+        return self.is_finished
+    def cancelled(self):
+        return self.is_cancelled
+
 class Window():
     def __init__(self):
         self.basedir = os.path.dirname(__file__)
@@ -82,11 +168,11 @@ class Window():
         dk = {'side':'top', 'fill':'x', 'expand':True, 'anchor':'nw'}
 
         # create top menu toolbar
-        # self.menubar = tk.Menu(self.root)
-        # self.root.config(menu=self.menubar)
-        # upmenu = tk.Menu(self.menubar)
-        # upmenu.add_command(label='Check for updates', command=lambda:quick_thread(self.check_for_update))
-        # self.menubar.add_cascade(label='Options', menu=upmenu)
+        self.menubar = tk.Menu(self.root)
+        self.root.config(menu=self.menubar)
+        upmenu = tk.Menu(self.menubar)
+        upmenu.add_command(label='Check for updates', command=lambda:quick_thread(self.check_for_update))
+        self.menubar.add_cascade(label='Options', menu=upmenu)
 
         self.credentials_frame = tk.LabelFrame(self.root, text='Your credentials')
         self.credentials_frame.pack(pady=(5,0), **dk)
@@ -296,6 +382,105 @@ class Window():
     def output(self, text, colour='white', **kwargs):
         self.output_label.config(text=text, bg=colour, **kwargs)
         self.output_label.update()
+    def check_for_update(self):
+        self.run_button.config(state=tk.DISABLED)
+        self.output('Checking')
+        url = 'https://github.com/Crozzers/EmailBlocker/blob/master/EmailBlocker.py?raw=true'
+        ret = makeHTTPRequest(url)
+        if ret==False:
+            self.output('Error: Failed to reach GitHub servers', 'red')
+        else:
+            http, data = ret
+            if http!=200:
+                self.output(f'Error: GitHub servers returned code: {http}', 'red')
+            else:
+                data = data.split('\n')
+                ver = None
+                for line in data:
+                    if line.startswith('__version__='):
+                        ver = line.replace('__version__=', '').replace('\'','')
+                        break
+                if ver==None:
+                    self.output('Failed to detect latest version', 'red')
+                else:
+                    if version.Version(ver)>version.Version(__version__) or True:
+                        # the "or True" is here for testing purposes
+                        msg_box = messagebox.askyesno(
+                            title='Update Available',
+                            message='Would you like to download and install the latest update?'
+                        )
+                        if msg_box==True:
+                            try:
+                                pjoin = os.path.join
+                                dest = pjoin(self.basedir, f'EmailBlocker-{ver}.zip')
+                                # start the download while we deal with any old downloads kicking about
+                                downloader = Download('https://github.com/Crozzers/EmailBlocker/archive/master.zip', dest)
+                                downloader.download()
+
+                                def unzip(downloader, dest):
+                                    while not downloader.finished():
+                                        sleep(1)
+                                    sleep(1)
+                                    with zipfile.ZipFile(dest) as f:
+                                        f.extractall(self.basedir)
+
+                                self.output('Disabling buttons')
+                                for b in self.actions_frame.winfo_children():
+                                    if type(b) in (tk.Button, tk.Checkbutton):
+                                        b.config(state=tk.DISABLED)
+
+                                self.output('Moving old update files')
+                                if os.path.isdir('EmailBlocker-master') or os.path.isfile('EmailBlocker-master'):
+                                    os.rename('EmailBlocker-master', 'EmailBlocker-master-old')
+
+                                # unzip in the background while we deal with removing all the old files
+                                unzip_thread = quick_thread(unzip, downloader, dest)
+
+                                self.output('Removing old update files')
+                                if os.path.isdir('EmailBlocker-master-old'):
+                                    shutil.rmtree('EmailBlocker-master-old')
+                                elif os.path.isfile('EmailBlocker-master-old'):
+                                    os.remove('EmailBlocker-master-old')
+
+                                while not downloader.started():
+                                    self.output('Waiting for download to start')
+                                    sleep(1)
+                                while not downloader.finished():
+                                    tmp = downloader.progress()
+                                    if downloader.length!=None:
+                                       self.output(f'Downloading update ({tmp[1]}/{conv_file_size(downloader.length)})')
+                                    sleep(0.05)
+                                sleep(1)
+
+                                self.output('Unzipping update')
+                                while unzip_thread.is_alive():
+                                    sleep(1)
+                                os.remove(dest)
+
+                                self.output('Waiting for running jobs to complete')
+                                while self.running:
+                                    sleep(1)
+
+                                up_dir = pjoin(self.basedir, 'EmailBlocker-master')
+                                for item in os.listdir(up_dir):
+                                    src = pjoin(up_dir, item)
+                                    dst = pjoin(self.basedir, item)
+                                    # only do files because the python embed directory shouldn't need to be updated
+                                    if os.path.isfile(src):
+                                       self.output(f'Updating {item}')
+                                       if os.path.isfile(dst):
+                                           os.remove(dst)
+                                       shutil.copyfile(src, dst)
+
+                                self.output('Update completed! Please restart the program', 'green')
+                            except:
+                                self.output(f'Failed to download update: {e}', 'red')
+                            finally:
+                                for b in self.actions_frame.winfo_children():
+                                    if type(b) in (tk.Button, tk.Checkbutton):
+                                        b.config(state=tk.NORMAL)
+                    else:
+                        self.output('No updates are available')
 
 if __name__=='__main__':
     window = Window()
