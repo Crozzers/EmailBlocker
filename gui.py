@@ -325,6 +325,8 @@ class Window():
                     except:pass
                     if settings['load_settings_on_launch']:
                         self.load_settings_check.select()
+                    if override:
+                        self.output('Settings loaded', 'green')
         except Exception as e:
             self.output(f'Failed to load your settings: {e}', 'red')
             pass
@@ -476,15 +478,15 @@ class Window():
                                 for item in os.listdir(up_dir):
                                     src = pjoin(up_dir, item)
                                     dst = pjoin(self.basedir, item)
-                                    # only do files because the python embed directory shouldn't need to be updated
-                                    if os.path.isfile(src):
+                                    # only do files because the python embed directory and TCL library shouldn't need to be updated
+                                    if os.path.isfile(src) :
                                        self.output(f'Updating {item}')
                                        if os.path.isfile(dst):
                                            os.remove(dst)
                                        shutil.copyfile(src, dst)
 
                                 self.output('Update completed! Please restart the program', 'green')
-                            except:
+                            except Exception as e:
                                 self.output(f'Failed to download update: {e}', 'red')
                             finally:
                                 for b in self.actions_frame.winfo_children():

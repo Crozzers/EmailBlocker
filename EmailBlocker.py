@@ -1,6 +1,9 @@
 import argparse, sys, os
 sys.path.append(os.path.dirname(__file__))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'packages'))
 import filter_emails
+
+os.environ['TCL_LIBRARY'] = os.path.join(os.path.dirname(__file__), 'tcl/tcl8.6')
 
 __version__='0.5.0-dev'
 

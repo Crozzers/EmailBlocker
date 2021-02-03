@@ -1,5 +1,6 @@
 Lib/site-packages
-DLLs
+../DLLs
+../packages
 python39.zip
 .
 
