@@ -1,5 +1,5 @@
 # v0.5.0-dev
-Removed most pyinstaller compiled EXE's
+Removed all pyinstaller compiled EXE's
 Added portable Python installation with pip and tkinter pre-installed
 Added basic updater
 

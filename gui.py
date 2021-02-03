@@ -1,9 +1,8 @@
 import tkinter as tk
 from tkinter import font as tkFont
 from tkinter import messagebox
-import filter_emails
-import json, os, shutil, threading
-from EmailBlocker import __version__
+import json, shutil, threading
+from EmailBlocker import __version__, sys, os, filter_emails
 import urllib.request
 from packaging import version
 from time import sleep
@@ -348,12 +347,13 @@ class Window():
         isdir = os.path.isdir
         isfile = os.path.isfile
 
-        endpath = os.path.join(os.path.expanduser('~'), 'AppData/Roaming/Microsoft/Windows/Start Menu/Programs/').replace('\\','/')
-        exepath = endpath+'EmailBlockerLite/EmailBlockerLite.py'
-        frompath = self.basedir
-        if not isfile(pjoin(frompath, 'EmailBlockerLite.exe')):
-            self.output('Cannot create startup task: cannot find EmailBlockerLite', 'red')
+        appdata_dir = pjoin(os.path.expanduser('~'), 'AppData/Roaming/Microsoft/Windows/Start Menu/Programs/')
+        startup_dir = pjoin(appdata_dir, 'Startup').replace('\\','/')
+        appdata_dir = pjoin(appdata_dir, 'EmailBlockerLite').replace('\\','/')
+        if not isfile(pjoin(self.basedir, 'EmailBlockerLite.py')):
+            self.output('Cannot create startup task: cannot find EmailBlockerLite.py', 'red')
             return
+        pydir = os.path.dirname(sys.executable)
 
         if mode==0:
             try:
@@ -368,16 +368,21 @@ class Window():
                     self.output('Cannot create startup task: Invalid blocking list', 'red')
                     return
                 sender = ','.join(sender)
+
+                self.output('Removing old startup task')
+                if isdir(appdata_dir):
+                    shutil.rmtree(appdata_dir)
+                self.output('Copying Python interpreter to AppData folder')
+                os.mkdir(appdata_dir)
+                shutil.copytree(pydir, pjoin(appdata_dir, 'py_interp'))
+
                 self.output('Copying EmailBlockerLite to AppData folder')
-                if not isdir(pjoin(endpath, 'EmailBlockerLite')):
-                    os.mkdir(pjoin(endpath, 'EmailBlockerLite'))
-                if not isfile(exepath):
-                    shutil.copyfile(pjoin(frompath, 'EmailBlockerLite.exe'), pjoin(endpath, 'EmailBlockerLite/EmailBlockerLite.exe'))
+                shutil.copyfile(pjoin(self.basedir, 'EmailBlockerLite.py'), pjoin(appdata_dir, 'EmailBlockerLite.py'))
                 
                 self.output('Writing batch file in shell:startup dir')
-                with open(endpath+'Startup/EmailBlocker.bat', 'w', encoding='utf-8') as f:
+                with open(pjoin(startup_dir, 'EmailBlocker.bat'), 'w', encoding='utf-8') as f:
                     f.write(
-                        f'@echo off\nstart "EmailBlocker" "{exepath}" "{email}" "{password}" "{sender}"'
+                        f'@echo off\nstart "EmailBlocker" "{pjoin(appdata_dir, "py_interp/python.exe")}" "{pjoin(appdata_dir, "EmailBlockerLite.py")}" "{email}" "{password}" "{sender}"'
                     )
                 self.output('Startup task created!', 'green')
             except Exception as e:
@@ -385,10 +390,10 @@ class Window():
                 traceback.print_exc()
                 self.output(f'Failed to create startup task: {e}', 'red')
         else:
-            if isdir(pjoin(endpath, 'EmailBlockerLite')):
-                shutil.rmtree(pjoin(endpath, 'EmailBlockerLite'))
-            if isfile(pjoin(endpath, 'Startup/EmailBlocker.bat')):
-                os.remove(pjoin(endpath, 'Startup/EmailBlocker.bat'))
+            if isdir(appdata_dir):
+                shutil.rmtree(appdata_dir)
+            if isfile(pjoin(startup_dir, 'EmailBlocker.bat')):
+                os.remove(pjoin(startup_dir, 'EmailBlocker.bat'))
             self.output('Startup tasks removed!', 'green')
         self.run_at_startup_buton1.config(state=tk.NORMAL)
         self.run_at_startup_buton2.config(state=tk.NORMAL)
