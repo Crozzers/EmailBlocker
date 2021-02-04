@@ -24,6 +24,8 @@ If your school has had the common sense to lock this setting down then I'm sorry
 
 If you want to read the source code for this program it is contained within the '.py' files.
 
-Note: This program may get flagged as a virus. This is because the app isnt "signed" (verified) in any way.
+### Things to note
+* This program may get flagged as a virus. This is because the app isnt "signed" (verified) in any way.
+* If you use the options "Save settings" or "Run at startup" then your credentials will be stored in a plain text file.
 
 Once you boot up the program it will ask for your email address, password and the email addresses you wish to block. Fill in the relevant info and click "Run".

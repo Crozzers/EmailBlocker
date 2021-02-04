@@ -234,31 +234,30 @@ class Window():
             if not sender:
                 self.output(f'Cannot filter emails: Invalid blocking list', 'red')
                 return
-            folder='inbox'
-            
-            self.output(f'Logging into GMAIL with user {email}')
-            connection_message, server = filter_emails.login(email, password)
-            self.output(connection_message)
 
-            self.output(f'Selecting {folder}')
-            filter_emails.select_label(server, folder)
+            with filter_emails.Server() as server:
+                self.output(f'Logging into GMAIL with user {email}')
+                server.login(email, password)
 
-            while True:
-                self.output(f'Searching {folder} for emails{" from "+sender if len(sender)==0 else ""}')
-                email_ids = []
-                for s in sender:
-                    if filter_emails.email_valid(s):
-                        email_ids+=filter_emails.get_emails(server, s)
-                    else:
-                        self.output(f'Skipped invalid email address: {s}')
-                if email_ids==[]:
-                    break
-                self.output(f'Found {len(email_ids)} email{"s" if len(email_ids)>1 else ""}')
+                self.output(f'Selecting inbox')
+                server.select_label('inbox')
 
-                if len(email_ids)>0:
-                    for i in range(len(email_ids)):
-                        self.output(f'Sending {len(email_ids)} email{"s" if len(email_ids)>1 else ""} to the bin ({i+1}/{len(email_ids)})')
-                        filter_emails.move_email(server, email_ids[i], filter_emails.TRASH)
+                while True:
+                    self.output(f'Searching inbox for emails{" from "+sender[0] if len(sender)==1 else ""}')
+                    emails = []
+                    for s in sender:
+                        if filter_emails.email_valid(s):
+                            emails+=server.get_email_by_sender(s)
+                        else:
+                            self.output(f'Skipped invalid email address: {s}')
+                    if emails==[]:
+                        break
+                    self.output(f'Found {len(emails)} email{"s" if len(emails)>1 else ""}')
+
+                    if len(emails)>0:
+                        for i in range(len(emails)):
+                            self.output(f'Sending {len(emails)} email{"s" if len(emails)>1 else ""} to the bin ({i+1}/{len(emails)})')
+                            server.delete_email(emails[i]['id'])
 
             self.output('Done!', 'green')
         except Exception as e:
@@ -380,6 +379,7 @@ class Window():
 
                 self.output('Copying EmailBlockerLite to AppData folder')
                 shutil.copyfile(pjoin(self.basedir, 'EmailBlockerLite.py'), pjoin(appdata_dir, 'EmailBlockerLite.py'))
+                shutil.copyfile(pjoin(self.basedir, 'filter_emails.py'), pjoin(appdata_dir, 'filter_emails.py'))
                 
                 self.output('Writing batch file in shell:startup dir')
                 with open(pjoin(startup_dir, 'EmailBlocker.bat'), 'w', encoding='utf-8') as f:
