@@ -29,6 +29,8 @@ class filter_emails:
 
 # define some constants
 TRASH = '\\Trash'
+__version__ = '0.5.0-dev'
+__author__='Crozzers'
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Deletes annoying emails from people you can\'t block')

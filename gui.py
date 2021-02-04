@@ -213,6 +213,8 @@ class Window():
         self.output_label.pack(**dk)
 
         self.load_settings()
+        # check if tasks need to be updated and if so, update them
+        self.run_at_startup(2)
     def show_password(self, *args):
         if self.password_input['show']=='*':
             self.password_input.config(show='')
@@ -389,12 +391,49 @@ class Window():
                 import traceback
                 traceback.print_exc()
                 self.output(f'Failed to create startup task: {e}', 'red')
-        else:
+        elif mode==1:
             if isdir(appdata_dir):
                 shutil.rmtree(appdata_dir)
             if isfile(pjoin(startup_dir, 'EmailBlocker.bat')):
                 os.remove(pjoin(startup_dir, 'EmailBlocker.bat'))
             self.output('Startup tasks removed!', 'green')
+        elif mode==2:
+            try:
+                if isdir(appdata_dir) and isfile(pjoin(startup_dir, 'EmailBlocker.bat')):
+                    ver = None
+                    with open(pjoin(appdata_dir, 'EmailBlockerLite.py'), 'r', encoding='utf-8') as f:
+                        for line in f.readlines():
+                            if line.replace(' ','').startswith('__version__='):
+                                ver = version.Version(line.replace(' ','').replace('__version__=', '').replace('\'', ''))
+                                break
+                    if ver==None:
+                        self.output('Failed to update startup tasks: Could not detect version of the task', 'orange')
+                    elif ver<version.Version(__version__):
+                        self.output('Updating startup tasks')
+                        # remove startup tasks
+                        self.run_at_startup(1)
+                        # add them back
+                        self.run_at_startup(0)
+                        self.output('Startup tasks updated', 'green')
+                elif isdir(appdata_dir) or isfile(pjoin(startup_dir, 'EmailBlocker.bat')):
+                    # if only one is detected then it's likely that the other was deleted
+                    # or that it's a startup task from a different program
+                    # if the latter is the case we really do NOT want to go and muck that up
+                    # so we ask the user what to do so if something goes wrong we can blame them :)
+                    self.output('Invalid startup tasks detected', 'orange')
+                    msg_box = messagebox.askyesno(
+                        title='Invalid startup tasks',
+                        message='An invalid startup task was detected. Would you like to repair it?'
+                    )
+                    if msg_box:
+                        self.run_at_startup(0)
+                        self.run_at_startup(1)
+                        self.output('Startup task repaired', 'green')
+
+            except Exception as e:
+                self.output(f'Failed to update startup tasks: {e}', 'red')
+        else:
+            pass
         self.run_at_startup_buton1.config(state=tk.NORMAL)
         self.run_at_startup_buton2.config(state=tk.NORMAL)
     def output(self, text, colour='white', **kwargs):
@@ -415,8 +454,8 @@ class Window():
                 data = data.split('\n')
                 ver = None
                 for line in data:
-                    if line.startswith('__version__='):
-                        ver = line.replace('__version__=', '').replace('\'','')
+                    if line.replace(' ','').startswith('__version__='):
+                        ver = line.replace(' ','').replace('__version__=', '').replace('\'','')
                         break
                 if ver==None:
                     self.output('Failed to detect latest version', 'red')
