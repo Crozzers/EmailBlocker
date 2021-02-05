@@ -37,7 +37,7 @@ def get_settings():
                             'bcc': False,
                             'subject': False,
                             'body': False,
-                            'fuzzy': False
+                            'exact_match': True
                         }
                     )
                 del(settings['blocked_emails'])
@@ -475,7 +475,7 @@ if __name__=='__main__':
                 'bcc': False,
                 'subject': False,
                 'body': False,
-                'fuzzy': False
+                'exact_match': True
             }
         }
         set_settings(settings)

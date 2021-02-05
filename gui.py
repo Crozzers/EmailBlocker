@@ -72,7 +72,8 @@ class FilterManager(tk.Frame):
 
         self.top_bar = []
         a = 0
-        for i in ('Search Term', 'From', 'CC', 'BCC', 'Subject', 'Body', 'Use fuzzy matches'):
+        # the '' at the end makes the small square of space above the delete buttons grey too
+        for i in ('Search Term', 'From', 'CC', 'BCC', 'Subject', 'Body', 'Fields must match', ''):
             self.top_bar.append(tk.Label(self, text=i, bg='#808080', anchor='w'))
             self.top_bar[-1].grid(row=0, column = a, sticky='nesw')
             a+=1
@@ -81,7 +82,7 @@ class FilterManager(tk.Frame):
         #self._init()
     def _format_filter(self, filter):
         if type(filter)==tuple:
-            search, from_, cc, bcc, subject, body, fuzzy = filter
+            search, from_, cc, bcc, subject, body, exact_match = filter
             filter = {
                 'search': search,
                 'from': from_,
@@ -89,14 +90,14 @@ class FilterManager(tk.Frame):
                 'bcc': bcc,
                 'subject': subject,
                 'body': body,
-                'fuzzy': fuzzy
+                'exact_match': exact_match
             }
         if filter == None:
             filter = {}
         if type(filter)==dict:
             if 'search' not in filter.keys() or type(filter['search'])!=str:
                 filter['search'] = ''
-            for i in ('from', 'cc', 'bcc', 'subject', 'body', 'fuzzy'):
+            for i in ('from', 'cc', 'bcc', 'subject', 'body', 'exact_match'):
                 if i not in filter.keys():
                     filter[i] = False
                 elif type(filter[i])==int:
@@ -120,7 +121,7 @@ class FilterManager(tk.Frame):
         row = e.grid_info()['row']
         a = 1
         ret = []
-        for i in (item['from'], item['cc'], item['bcc'], item['subject'], item['body'], item['fuzzy']):
+        for i in (item['from'], item['cc'], item['bcc'], item['subject'], item['body'], item['exact_match']):
             cb = tk.Checkbutton(self, bg=bg, bd=0, name=f'checkbuttonr{row}c{a}')
             cb.variable = tk.BooleanVar()
             cb.config(variable = cb.variable)
@@ -195,7 +196,7 @@ class FilterManager(tk.Frame):
                 rows.append(i)
         return rows
     def get_row(self, row):
-        names = ('from', 'cc', 'bcc', 'subject', 'body', 'fuzzy')
+        names = ('from', 'cc', 'bcc', 'subject', 'body', 'exact_match')
         setting = {}
         if row<0:
             row = self.rows()[row]
