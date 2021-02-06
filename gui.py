@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import font as tkFont
 from tkinter import messagebox
 import EmailBlocker
-from EmailBlocker import __version__, filter_emails, output, quick_thread, get_settings, save_settings
+from EmailBlocker import __version__, filter_emails, output, quick_thread, get_settings, set_settings, save_settings
 import os
 
 class WrappingLabel(tk.Label):
@@ -73,8 +73,8 @@ class FilterManager(tk.Frame):
         self.top_bar = []
         a = 0
         # the '' at the end makes the small square of space above the delete buttons grey too
-        for i in ('Search Term', 'From', 'CC', 'BCC', 'Subject', 'Body', 'Fields must match', ''):
-            self.top_bar.append(tk.Label(self, text=i, bg='#808080', anchor='w'))
+        for i in ('Search Term', 'From', 'CC', 'BCC', 'Subject', 'Body', 'Search must be present\nin ALL fields', 'Must match the\nsearch exactly', ''):
+            self.top_bar.append(tk.Label(self, text=i, bg='#808080', anchor='nw', height=2))
             self.top_bar[-1].grid(row=0, column = a, sticky='nesw')
             a+=1
         self.grid_columnconfigure(0, weight=1)
@@ -82,7 +82,7 @@ class FilterManager(tk.Frame):
         #self._init()
     def _format_filter(self, filter):
         if type(filter)==tuple:
-            search, from_, cc, bcc, subject, body, exact_match = filter
+            search, from_, cc, bcc, subject, body, all_match, exact_match = filter
             filter = {
                 'search': search,
                 'from': from_,
@@ -90,6 +90,7 @@ class FilterManager(tk.Frame):
                 'bcc': bcc,
                 'subject': subject,
                 'body': body,
+                'all_match': all_match,
                 'exact_match': exact_match
             }
         if filter == None:
@@ -97,7 +98,7 @@ class FilterManager(tk.Frame):
         if type(filter)==dict:
             if 'search' not in filter.keys() or type(filter['search'])!=str:
                 filter['search'] = ''
-            for i in ('from', 'cc', 'bcc', 'subject', 'body', 'exact_match'):
+            for i in ('from', 'cc', 'bcc', 'subject', 'body', 'all_match', 'exact_match'):
                 if i not in filter.keys():
                     filter[i] = False
                 elif type(filter[i])==int:
@@ -121,14 +122,10 @@ class FilterManager(tk.Frame):
         row = e.grid_info()['row']
         a = 1
         ret = []
-        for i in (item['from'], item['cc'], item['bcc'], item['subject'], item['body'], item['exact_match']):
+        for i in (item['from'], item['cc'], item['bcc'], item['subject'], item['body'], item['all_match'], item['exact_match']):
             cb = tk.Checkbutton(self, bg=bg, bd=0, name=f'checkbuttonr{row}c{a}')
             cb.variable = tk.BooleanVar()
             cb.config(variable = cb.variable)
-            if a>1:
-                cb.config(state=tk.DISABLED)
-                ### TODO:
-                # remove this
             cb.grid(row=row, column=a, sticky='nesw')
             if i:
                 cb.select()
@@ -196,7 +193,7 @@ class FilterManager(tk.Frame):
                 rows.append(i)
         return rows
     def get_row(self, row):
-        names = ('from', 'cc', 'bcc', 'subject', 'body', 'exact_match')
+        names = ('from', 'cc', 'bcc', 'subject', 'body', 'all_match', 'exact_match')
         setting = {}
         if row<0:
             row = self.rows()[row]
@@ -220,7 +217,7 @@ class Window():
         self.menubar = tk.Menu(self.root)
         self.root.config(menu=self.menubar)
         upmenu = tk.Menu(self.menubar)
-        upmenu.add_command(label='Check for updates', command=lambda:quick_thread(EmailBlocker.check_for_update))
+        upmenu.add_command(label='Check for updates', command=lambda:quick_thread(self.check_for_update))
         self.menubar.add_cascade(label='Options', menu=upmenu)
 
         self.credentials_frame = tk.LabelFrame(self.root, text='Your credentials')
@@ -252,15 +249,13 @@ class Window():
             self.actions_frame, text='Load your saved settings on launch', variable=self.load_settings_at_launch, command=lambda:self.save_settings(1))
         self.load_settings_check.pack(pady=(0, 10), **dk)
         WrappingLabel(self.actions_frame,text='NOTICE: I offer no warranty of any kind with this program', bg='red').pack(**dk)
-        self.run_button = tk.Button(self.actions_frame, text='Run', command=lambda:quick_thread(EmailBlocker.run), relief='groove')
+        self.run_button = tk.Button(self.actions_frame, text='Run', command=lambda:quick_thread(self.run), relief='groove')
         self.run_button.pack(pady=(5, 10), **dk)
 
-        if os.name=='nt' and False:
-            ### TODO
-            # remove the "and False" once I have verified this is working again
-            self.run_at_startup_buton1 = tk.Button(self.actions_frame, text='Run the current settings when the computer starts', command=lambda:quick_thread(EmailBlocker.StartupTask.create), relief='groove')
+        if os.name=='nt':
+            self.run_at_startup_buton1 = tk.Button(self.actions_frame, text='Run the current config when the computer starts', command=lambda:quick_thread(self.StartupTask_create), relief='groove')
             self.run_at_startup_buton1.pack(pady=5, **dk)
-            self.run_at_startup_buton2 = tk.Button(self.actions_frame, text='Remove startup tasks', command=lambda:quick_thread(EmailBlocker.StartupTask.destroy), relief='groove')
+            self.run_at_startup_buton2 = tk.Button(self.actions_frame, text='Remove startup tasks', command=lambda:quick_thread(self.StartupTask_destroy), relief='groove')
             self.run_at_startup_buton2.pack(pady=(0, 10), **dk)
 
         self.output_label = WrappingLabel(self.root)
@@ -354,6 +349,25 @@ class Window():
             self.filter_manager.load_filters()
         except:
             pass
+    def run(self):
+        set_settings(self.get_inputs())
+        self.disable('run')
+        EmailBlocker.run()
+        self.enable('run')
+    def StartupTask_create(self):
+        set_settings(self.get_inputs())
+        self.disable('startup')
+        EmailBlocker.StartupTask.create()
+        self.enable('startup')
+    def StartupTask_destroy(self):
+        set_settings(self.get_inputs())
+        self.disable('startup')
+        EmailBlocker.StartupTask.destroy()
+        self.enable('startup')
+    def check_for_update(self):
+            self.disable('actions_frame')
+            EmailBlocker.check_for_update()
+            self.enable('actions_frame')
 
 if __name__=='__main__':
     global window

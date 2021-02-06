@@ -37,6 +37,7 @@ def get_settings():
                             'bcc': False,
                             'subject': False,
                             'body': False,
+                            'all_match': True,
                             'exact_match': True
                         }
                     )
@@ -156,18 +157,7 @@ class StartupTask:
     startup_dir = pjoin(appdata_dir, 'Startup').replace('\\','/')
     appdata_dir = pjoin(appdata_dir, 'EmailBlockerLite').replace('\\','/')
     basedir = os.path.dirname(__file__)
-    def enable_buttons():
-        try:
-            window.enable('startup')
-        except:
-            pass
-    def disable_buttons():
-        try:
-            window.disable('startup')
-        except:
-            pass
     def create():
-        StartupTask.disable_buttons()
         appdata_dir = StartupTask.appdata_dir
         startup_dir = StartupTask.startup_dir
         pjoin = StartupTask.pjoin
@@ -181,7 +171,7 @@ class StartupTask:
             return
 
         try:
-            config = window.get_inputs()
+            config = get_settings()
             if not filter_emails.email_valid(config['user_email']):
                 output('Cannot create startup task: Invalid email address', 'red')
                 return
@@ -204,16 +194,14 @@ class StartupTask:
             output('Writing batch file in shell:startup dir')
             with open(pjoin(startup_dir, 'EmailBlocker.bat'), 'w', encoding='utf-8') as f:
                 f.write(
-                    f'@echo off\nstart "EmailBlocker" "{pjoin(appdata_dir, "py_interp/python.exe")}" "{pjoin(appdata_dir, "EmailBlockerLite.py")}" -f {os.path.join(appdata_dir, "settings.json")}'
+                    f'@echo off\nstart "EmailBlocker" "{pjoin(appdata_dir, "py_interp/python.exe")}" "{pjoin(appdata_dir, "EmailBlockerLite.py")}" -f "{os.path.join(appdata_dir, "settings.json")}"'
                 )
             output('Startup task created!', 'green')
         except Exception as e:
             import traceback
             traceback.print_exc()
             output(f'Failed to create startup task: {e}', 'red')
-        StartupTask.enable_buttons()
     def destroy():
-        StartupTask.disable_buttons()
         appdata_dir = StartupTask.appdata_dir
         startup_dir = StartupTask.startup_dir
         pjoin = StartupTask.pjoin
@@ -225,9 +213,7 @@ class StartupTask:
         if isfile(pjoin(startup_dir, 'EmailBlocker.bat')):
             os.remove(pjoin(startup_dir, 'EmailBlocker.bat'))
         output('Startup tasks removed!', 'green')
-        StartupTask.enable_buttons()
     def repair():
-        StartupTask.disable_buttons()
         appdata_dir = StartupTask.appdata_dir
         startup_dir = StartupTask.startup_dir
         pjoin = StartupTask.pjoin
@@ -283,17 +269,9 @@ class StartupTask:
         except Exception as e:
             output(f'Failed to update startup tasks: {e}', 'red')
 
-        StartupTask.enable_buttons()
-
 def run():
     try:
-        try:window.disable('run')
-        except:pass
-
-        try:
-            config = window.get_inputs()
-        except:
-            config = get_settings()
+        config = get_settings()
 
         if not filter_emails.email_valid(config['user_email']):
             output(f'Cannot filter emails: Invalid email address', 'red')
@@ -301,43 +279,44 @@ def run():
         if config['user_password']=='':
             output(f'Cannot filter emails: Invalid password', 'red')
             return
-        sender = [i['search'] for i in config['filters'] if i['from']]
 
         with filter_emails.Server() as server:
             output(f'Logging into GMAIL with user {config["user_email"]}')
-            server.login(config['user_email'], config['user_password'])
+            try:
+                server.login(config['user_email'], config['user_password'])
+            except Exception as e:
+                output(f'Failed to log in: {e}', 'red')
+                return
 
             output(f'Selecting inbox')
             server.select_label('inbox')
 
-            while True:
-                output(f'Searching inbox for emails{" from "+sender[0] if len(sender)==1 else ""}')
-                emails = []
-                for s in sender:
-                    if filter_emails.email_valid(s):
-                        emails+=server.get_email_by_sender(s)
-                    else:
-                        output(f'Skipped invalid email address: {s}')
-                if emails==[]:
-                    break
-                output(f'Found {len(emails)} email{"s" if len(emails)>1 else ""}')
+            email_ids = []
+            for filter in config['filters']:
+                output(f'Searching for emails that match "{filter["search"]}"')
+                email_ids+=server.search(
+                    filter['search'],
+                    from_ = filter['from'],
+                    cc=filter['cc'],
+                    bcc=filter['bcc'],
+                    subject=filter['subject'],
+                    body=filter['body'],
+                    all_match=filter['all_match'],
+                    exact_match=filter['exact_match']
+                )
 
-                if len(emails)>0:
-                    for i in range(len(emails)):
-                        output(f'Sending {len(emails)} email{"s" if len(emails)>1 else ""} to the bin ({i+1}/{len(emails)})')
-                        server.delete_email(emails[i]['id'])
+            output(f'Found {len(email_ids)} email{"s" if len(email_ids)>1 or len(email_ids)==0 else ""}')
+
+            if len(email_ids)>0:
+                for i in range(len(email_ids)):
+                    output(f'Sending {len(email_ids)} email{"s" if len(email_ids)>1 else ""} to the bin ({i+1}/{len(email_ids)})')
+                    server.delete_email(email_ids[i])
 
         output('Done!', 'green')
     except Exception as e:
         output(f'Failed: {e}', 'red')
-    finally:
-        try:window.enable('run')
-        except:pass
 
 def check_for_update():
-    try:window.disable('run')
-    except:pass
-
     output('Checking')
     url = 'https://github.com/Crozzers/EmailBlocker/blob/master/EmailBlocker.py?raw=true'
     ret = makeHTTPRequest(url)
@@ -390,10 +369,6 @@ def check_for_update():
                                 with zipfile.ZipFile(dest) as f:
                                     f.extractall(basedir)
 
-                            output('Disabling buttons')
-                            try:window.disable('actions_frame')
-                            except:pass
-
                             output('Moving old update files')
                             if os.path.isdir('EmailBlocker-master') or os.path.isfile('EmailBlocker-master'):
                                 os.rename('EmailBlocker-master', 'EmailBlocker-master-old')
@@ -438,8 +413,27 @@ def check_for_update():
                             output(f'Failed to download update: {e}', 'red')
                 else:
                     output('No updates are available')
-    try:window.enable('actions_frame')
-    except:pass
+
+def validate_config(config:dict):
+    for i in ('user_email', 'user_password', 'filters'):
+        if i not in config.keys():
+            raise Exception(f'Invalid configuration. Missing key: {i}')
+    if not filter_emails.email_valid(config['user_email']):
+        raise ValueError('Invalid user email')
+    if config['user_password']=='':
+        raise ValueError('Invalid password')
+    filters = []
+    for filter in config['filters']:
+        for i in (('search', ''), ('from', False), ('cc', False), ('bcc', False), ('subject', False), ('body', False), ('all_match', True), ('exact_match', True)):
+            if i[0] not in filter.keys():
+                filter[i[0]] = i[1]
+            elif type(filter[i[0]])!=type(i[1]):
+                raise TypeError(f'filter key "{i[0]}" contains invalid type {type(filter[i[0]])}, expected {type(i[1])}')
+            else:
+                pass
+        filters.append(filter)
+    config['filters'] = filters
+    return config
 
 os.environ['TCL_LIBRARY'] = os.path.join(os.path.dirname(__file__), 'tcl/tcl8.6')
 __version__='0.5.0-dev'
@@ -458,25 +452,58 @@ if __name__=='__main__':
     else:
         parser = argparse.ArgumentParser(description='Deletes annoying emails from people you can\'t block')
 
-        parser.add_argument('email', type=str, help='Your email address')
-        parser.add_argument('password', type=str, help='Your password')
-        parser.add_argument('sender', type=str, help='The email of the person you want to block')
+        parser.add_argument('-f', '--file', action='store_true', help='Load filter settings from stored settings.json file (If specified all other args are ignored)')
+        parser.add_argument('--email', required=False, type=str, help='Your email address')
+        parser.add_argument('--password', required=False, type=str, help='Your password')
+        parser.add_argument('--filter', required=False, type=str, help='The string to filter out (seperate multiple values with commas)')
+        parser.add_argument('--sender', action='store_true', help='Filter by sender')
+        parser.add_argument('--cc', action='store_true', help='Filter by CC')
+        parser.add_argument('--bcc', action='store_true', help='Filter by BCC')
+        parser.add_argument('--subject', action='store_true', help='Filter by subject')
+        parser.add_argument('--body', action='store_true', help='Filter by contents of body')
+        parser.add_argument('--no-exact-match', action='store_true', help='Filter if the field contains the search term even if the two don\'t completely match')
+        parser.add_argument('--no-all-match', action='store_true', help='The query doesn\'t have to appear in ALL specified fields, just one of them')
 
         args = parser.parse_args()
 
-        settings = get_settings()
-        settings['user_email'] = args.email
-        settings['user_password'] = args.password
-        settings['filters'] = {
-            {
-                'search': args.sender,
-                'from': True,
-                'cc': False,
-                'bcc': False,
-                'subject': False,
-                'body': False,
-                'exact_match': True
-            }
-        }
-        set_settings(settings)
+        if args.file:
+            try:
+                with open(os.path.join(os.path.dirname(__file__), 'settings.json'), 'r', encoding='utf-8') as f:
+                    config = validate_config(json.load(f))
+            except Exception as e:
+                print(f'Failed to load settings.json: {e}')
+                sys.exit(1)
+        else:
+            if any(getattr(args, i)==None for i in ('email', 'password', 'filter')):
+                print('--email, --password and --filter arguments are required')
+                sys.exit(1)
+            elif all(getattr(args, i)==False for i in ('sender', 'cc', 'bcc', 'subject', 'body')):
+                print('At least one category to filter by is required')
+                sys.exit(1)
+            else:
+                config = {
+                    'user_email': args.email,
+                    'user_password': args.password,
+                    'filters': []
+                }
+                filters = []
+                for i in args.filter.split(','):
+                    config['filters'].append(
+                        {
+                            'search': i,
+                            'from': args.sender,
+                            'cc': args.cc,
+                            'bcc': args.bcc,
+                            'subject': args.subject,
+                            'body': args.body,
+                            'all_match': not args.no_all_match, # we do NOT args.no_all_match because the default choice is "use ALL matches" and if "not all matches" is True, we need to invert it
+                            'exact_match': not args.no_exact_match # same here
+                        }
+                    )
+                try:
+                    config = validate_config(config)
+                except Exception as e:
+                    print(f'Failed to parse config: {e}')
+                    sys.exit(1)
+        set_settings(config)
         run()
