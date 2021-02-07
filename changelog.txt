@@ -2,6 +2,7 @@
 Removed all pyinstaller compiled EXE's
 Added portable Python installation with pip and tkinter pre-installed
 Added basic updater
+Added ability to filter by sender, cc, bcc, subject and body of emails
 
 # v0.4.0
 Created a toolchain to generate the executables, hopefully meaning the process will be far more reliable

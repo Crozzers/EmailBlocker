@@ -192,9 +192,11 @@ class StartupTask:
             save_settings(config, file=os.path.join(appdata_dir, 'settings.json'))
 
             output('Writing batch file in shell:startup dir')
+            paths = [pjoin(appdata_dir, "py_interp/python.exe"), pjoin(appdata_dir, "EmailBlockerLite.py")]
+            paths = [i.replace('\\','/') for i in paths]
             with open(pjoin(startup_dir, 'EmailBlocker.bat'), 'w', encoding='utf-8') as f:
                 f.write(
-                    f'@echo off\nstart "EmailBlocker" "{pjoin(appdata_dir, "py_interp/python.exe")}" "{pjoin(appdata_dir, "EmailBlockerLite.py")}" -f "{os.path.join(appdata_dir, "settings.json")}"'
+                    f'@echo off\nstart "EmailBlocker" "{paths[0]}" "{paths[1]}" -f'
                 )
             output('Startup task created!', 'green')
         except Exception as e:
@@ -208,11 +210,14 @@ class StartupTask:
         isdir = StartupTask.isdir
         isfile = StartupTask.isfile
 
-        if isdir(appdata_dir):
-            shutil.rmtree(appdata_dir)
-        if isfile(pjoin(startup_dir, 'EmailBlocker.bat')):
-            os.remove(pjoin(startup_dir, 'EmailBlocker.bat'))
-        output('Startup tasks removed!', 'green')
+        try:
+            if isdir(appdata_dir):
+                shutil.rmtree(appdata_dir)
+            if isfile(pjoin(startup_dir, 'EmailBlocker.bat')):
+                os.remove(pjoin(startup_dir, 'EmailBlocker.bat'))
+            output('Startup tasks removed!', 'green')
+        except Exception as e:
+            output(f'Failed to remove startup task: {e}')
     def repair():
         appdata_dir = StartupTask.appdata_dir
         startup_dir = StartupTask.startup_dir
@@ -436,7 +441,7 @@ def validate_config(config:dict):
     return config
 
 os.environ['TCL_LIBRARY'] = os.path.join(os.path.dirname(__file__), 'tcl/tcl8.6')
-__version__='0.5.0-dev'
+__version__='0.5.0-a1'
 
 # import this here once eveything is set up
 import gui

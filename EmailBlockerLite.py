@@ -24,7 +24,7 @@ def validate_config(config:dict):
     config['filters'] = filters
     return config
 
-__version__ = '0.5.0-dev'
+__version__ = '0.5.0-a1'
 __author__='Crozzers'
 
 if __name__=='__main__':
