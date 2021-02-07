@@ -67,7 +67,7 @@ class WrappingLabel(tk.Label):
         super().destroy(*args, **kwargs)
 
 class ScrollableFrame(tk.Frame):
-    def __init__(self, container, *args, **kwargs):
+    def __init__(self, container, *args, autobind=True, **kwargs):
         self.__parent = tk.Frame(container, *args, **kwargs)
         self.__canvas = tk.Canvas(self.__parent)
         self.__scrollbar = tk.Scrollbar(self.__parent, orient="vertical", command=self.__canvas.yview)
@@ -79,6 +79,7 @@ class ScrollableFrame(tk.Frame):
                 setattr(self, i, getattr(self.__parent, i))
 
         self.bind("<Configure>",self.__config)
+        self.autobind = autobind
 
         self.__canvas.create_window((0, 0), window=self, anchor="nw")
         self.__canvas.configure(yscrollcommand=self.__scrollbar.set)
@@ -92,15 +93,12 @@ class ScrollableFrame(tk.Frame):
     def __config(self, event):
         self.__canvas.configure(scrollregion=self.__canvas.bbox("all"))
         self.__canvas.configure(yscrollcommand=self.__scrollbar.set)
-        children = self.__get_all_children()
-        children.append(self.__canvas)
-        if os.name=='nt':
-            for child in children:
-                child.bind_all('<MouseWheel>', self.scroll)
-        else:#linux
-            for child in children:
-                child.bind_all('<4>', self.scroll)
-                child.bind_all('<5>', self.scroll)
+        if self.autobind:
+            if super().winfo_reqheight()<self.winfo_height():
+                self.children_unbind_scroll()
+                self.__canvas.yview_moveto(0)
+            else:
+                self.children_bind_scroll()
         self.__canvas.config(width = super().winfo_reqwidth())
     def __get_all_children(self, *args):
         if len(args)==0:
@@ -123,16 +121,30 @@ class ScrollableFrame(tk.Frame):
     def scroll(self, amount):
         if type(amount)==tk.Event:
             if os.name=='nt':
-                if amount.delta<0:
-                    amount = 1
-                else:
-                    amount = -1
+                amount = 1 if amount.delta<0 else -1
             else:#linux
-                if amount.num==4:
-                    amount = -1
-                else:
-                    amount = 1
+                amount = 1 if amount.num==4 else -1
         self.__canvas.yview_scroll(amount, 'units')
+    def children_bind_scroll(self):
+        children = self.__get_all_children()
+        children.append(self.__canvas)
+        if os.name=='nt':
+            for child in children:
+                child.bind_all('<MouseWheel>', self.scroll)
+        else:#linux
+            for child in children:
+                child.bind_all('<4>', self.scroll)
+                child.bind_all('<5>', self.scroll)
+    def children_unbind_scroll(self):
+        children = self.__get_all_children()
+        children.append(self.__canvas)
+        if os.name=='nt':
+            for child in children:
+                child.unbind_all('<MouseWheel>')
+        else:#linux
+            for child in children:
+                child.unbind_all('<4>')
+                child.unbind_all('<5>')
 
 class FilterManager(tk.Frame):
     def __init__(self, container, *args, **kwargs):
@@ -209,23 +221,26 @@ class FilterManager(tk.Frame):
         tk.Button(self, text='Delete', relief='groove', command=lambda:self.remove_row(row)).grid(row=row, column=a, sticky='nesw')
         return e, *ret
     def remove_row(self, row):
-        for w in self.grid_slaves(row=row):
-            w.grid_remove()
-            w.grid_forget()
-            w.destroy()
+        try:
+            for w in self.grid_slaves(row=row):
+                w.grid_remove()
+                w.grid_forget()
+                w.destroy()
 
-        a=0
-        for i in range(1, self.grid_size()[1]):
-            # the order of the background swapping is reversed here because look up and behold!
-            # this loop starts on an ODD number. The others start at 0
-            bg='#d9d9d9'
-            if a%2==0:
-                bg = 'white'
-            if len(self.grid_slaves(row=i))>0:
-                for w in self.grid_slaves(row=i):
-                    w.config(bg=bg)
-                    w.update()
-                a+=1
+            a=0
+            for i in range(1, self.grid_size()[1]):
+                # the order of the background swapping is reversed here because look up and behold!
+                # this loop starts on an ODD number. The others start at 0
+                bg='#d9d9d9'
+                if a%2==0:
+                    bg = 'white'
+                if len(self.grid_slaves(row=i))>0:
+                    for w in self.grid_slaves(row=i):
+                        w.config(bg=bg)
+                        w.update()
+                    a+=1
+        except tk.TclError:
+            pass
     def add_row(self, value=None):
         if value!=None:
             value = self._format_filter(value)
@@ -316,7 +331,7 @@ class Window():
         self.filter_manager = FilterManager(tmp, bd=0, highlightthickness=0)
         self.filter_manager.pack(**dk)
         #self.filter_manager.pack(side='top', fill='both', expand=True)
-        tk.Button(self.blocking_frame, text='Add blocking rule', command = self.filter_manager.add_row, relief='groove').pack(**dk)
+        tk.Button(self.blocking_frame, text='Add blocking rule', command=lambda:[self.filter_manager.add_row(),tmp.children_bind_scroll()], relief='groove').pack(**dk)
 
         self.actions_frame = tk.Frame(self.root)
         self.actions_frame.pack(pady=15, **dk)
