@@ -100,13 +100,19 @@ class FilterManager(tk.Frame):
                 filter['search'] = ''
             for i in ('from', 'cc', 'bcc', 'subject', 'body', 'all_match', 'exact_match'):
                 if i not in filter.keys():
-                    filter[i] = False
+                    if 'match' in i: # because all_match and exact_match should default to True
+                        filter[i] = True
+                    else:
+                        filter[i] = False
                 elif type(filter[i])==int:
                     filter[i] = bool(filter[i])
                 elif type(filter[i])==bool:
                     pass
                 else:
-                    filter[i] = False
+                    if 'match' in i: # because all_match and exact_match should default to True
+                        filter[i] = True
+                    else:
+                        filter[i] = False
         return filter
     def _create(self, item, focus=False):
         e = tk.Entry(self, bd=1, width=50)
@@ -157,17 +163,17 @@ class FilterManager(tk.Frame):
             self._create(value)
         else:
             try:
-                row = self.rows()[-1]
-                last = self.get_row(row)
-                # if theses an un-filled entry then focus on that instead of adding more rows
-                if last['search'] == '' and all([i==False for i in last.values() if type(i)==bool]):
-                    for i in self.grid_slaves(row=row):
-                        if type(i)==tk.Entry:
-                            i.focus()
-                            break
-                else:
-                    # if there are no un-filled entries then create one
-                    self._create(self._format_filter(None), focus=True)
+                rows = self.rows()
+                for r in rows:
+                    row = self.get_row(r)
+                    if row['search'] == '' and all(row[k]==False for k,v in row.items() if 'match' not in k and type(v)==bool):
+                        # if theres an un-filled entry then focus on that instead of adding more rows
+                        for i in self.grid_slaves(row=r):
+                            if type(i)==tk.Entry:
+                                i.focus()
+                                return
+                # if there are no un-filled entries then create one
+                self._create(self._format_filter(None), focus=True)
             except IndexError:
                 # if there are no un-filled entries then create one
                 self._create(self._format_filter(None), focus=True)
