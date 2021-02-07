@@ -66,6 +66,74 @@ class WrappingLabel(tk.Label):
         self.unbind_all('<Configure>')
         super().destroy(*args, **kwargs)
 
+class ScrollableFrame(tk.Frame):
+    def __init__(self, container, *args, **kwargs):
+        self.__parent = tk.Frame(container, *args, **kwargs)
+        self.__canvas = tk.Canvas(self.__parent)
+        self.__scrollbar = tk.Scrollbar(self.__parent, orient="vertical", command=self.__canvas.yview)
+        super().__init__(self.__canvas, *args, **kwargs)
+
+        for i in dir(self.__parent):
+            if i.startswith(('winfo', 'pack', 'place', 'grid')):
+                setattr(self, 'scroll_'+i, getattr(self, i))
+                setattr(self, i, getattr(self.__parent, i))
+
+        self.bind("<Configure>",self.__config)
+
+        self.__canvas.create_window((0, 0), window=self, anchor="nw")
+        self.__canvas.configure(yscrollcommand=self.__scrollbar.set)
+
+        self.__canvas.pack(side="left", fill="both", expand=True)
+        self.__scrollbar.pack(side="right", fill="y")
+    def config(self, *args, **kwargs):
+        self.__canvas.config(*args, **kwargs)
+        self.__parent.config(*args, **kwargs)
+        super().config(*args,**kwargs)
+    def __config(self, event):
+        self.__canvas.configure(scrollregion=self.__canvas.bbox("all"))
+        self.__canvas.configure(yscrollcommand=self.__scrollbar.set)
+        children = self.__get_all_children()
+        children.append(self.__canvas)
+        if os.name=='nt':
+            for child in children:
+                child.bind_all('<MouseWheel>', self.scroll)
+        else:#linux
+            for child in children:
+                child.bind_all('<4>', self.scroll)
+                child.bind_all('<5>', self.scroll)
+        self.__canvas.config(width = super().winfo_reqwidth())
+    def __get_all_children(self, *args):
+        if len(args)==0:
+            children=self
+        else:
+            children=args[0]
+        re=[]
+        if type(children)!=list:
+            re=children.winfo_children()
+            children=children.winfo_children()
+        if type(children)==list:
+            for i in children:
+                if type(i)==tk.Frame:
+                    re+=self.__get_all_children(i.winfo_children())+[i]
+                else:
+                    re+=[i]
+        else:
+            re+=[children]
+        return list(set(re))
+    def scroll(self, amount):
+        if type(amount)==tk.Event:
+            if os.name=='nt':
+                if amount.delta<0:
+                    amount = 1
+                else:
+                    amount = -1
+            else:#linux
+                if amount.num==4:
+                    amount = -1
+                else:
+                    amount = 1
+        self.__canvas.yview_scroll(amount, 'units')
+
 class FilterManager(tk.Frame):
     def __init__(self, container, *args, **kwargs):
         super().__init__(container, *args, **kwargs)
@@ -77,6 +145,7 @@ class FilterManager(tk.Frame):
             self.top_bar.append(tk.Label(self, text=i, bg='#808080', anchor='nw', height=2))
             self.top_bar[-1].grid(row=0, column = a, sticky='nesw')
             a+=1
+
         self.grid_columnconfigure(0, weight=1)
 
         #self._init()
@@ -241,8 +310,12 @@ class Window():
         self.blocking_frame = tk.LabelFrame(self.root, text='Blocking Settings')
         self.blocking_frame.pack(pady=(10,0), **dk)
 
-        self.filter_manager = FilterManager(self.blocking_frame)
+        tmp = ScrollableFrame(self.blocking_frame, bd=0, highlightthickness=0)
+        tmp.pack(side='top', fill='both', expand=True)
+
+        self.filter_manager = FilterManager(tmp, bd=0, highlightthickness=0)
         self.filter_manager.pack(**dk)
+        #self.filter_manager.pack(side='top', fill='both', expand=True)
         tk.Button(self.blocking_frame, text='Add blocking rule', command = self.filter_manager.add_row, relief='groove').pack(**dk)
 
         self.actions_frame = tk.Frame(self.root)
