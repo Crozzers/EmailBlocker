@@ -12,9 +12,12 @@ Well I (possibly) have a solution for you! This program will run through your in
 First you have to enable 'less secure app access' in your google account settings.
 If your school has had the common sense to lock this setting down then I'm sorry but it's too late for you.
 
-* Go to your school email inbox, click on your profile picture in the top right corner and click on 'Manage Accout Settings'
-* Search 'less secure app access' in the search bar and hit enter
-* Enable the setting
+* Go to your school email inbox, click on your profile picture in the top right corner and click on 'Manage Accout Settings'  
+![Step 1](img/setup-manage-account.png)
+* Search 'less secure app access' in the search bar and hit enter  
+![Step 2](img/setup-search.png)
+* Enable the setting  
+![Step 3](img/setup-allow-lsaa.png)
 * Download this program
 
 

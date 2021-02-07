@@ -441,7 +441,7 @@ def validate_config(config:dict):
     return config
 
 os.environ['TCL_LIBRARY'] = os.path.join(os.path.dirname(__file__), 'tcl/tcl8.6')
-__version__='0.5.0-a1'
+__version__='0.5.0'
 
 # import this here once eveything is set up
 import gui
