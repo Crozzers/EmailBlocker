@@ -29,28 +29,29 @@ If you want to read the source code for this program it is contained within the 
 * If you use the options "Save settings" or "Run at startup" then your credentials will be stored in a plain text file.
 
 ## Usage
-#### Step 1: Entering Credentials
+### Step 1: Entering Credentials
 
 This is fairly straight forward. You will see some input boxes similar to this at the top of the program
-![The credentials prompt](img/usage-credentials.png)
+![The credentials prompt](img/usage-credentials.png)  
 Simply enter your email address and password to get started.  
 NOTE: You must have enabled 'less secure app access' with the GMail account you wish to use (see the setup section above)
 
-#### Step 2: Creating your filtering rules
+### Step 2: Creating your filtering rules
 
-![The filters dialog which took me 8 hours to make](img/usage-filter-rules.png)
+![The filters dialog which took me 8 hours to make](img/usage-filter-rules.png)  
 Here is where you will create the set of rules that the program will use to select which emails to delete. There are a few options here which I will go through.
 
 **Search Term**:  
-The search term is what you are searching to filter out. This could be anything like an email address, a key word/phrase.
+The search term is what you are searching to filter out. This could be anything like an email address, a key word/phrase or a specific block of text.
 This is the string that the program will search for in the various fields you tell it to (specified next). If a field contains your search term then that email will be deleted
 
 **From**:  
-When this box is checked then any emails with a sender that matches your search term will be deleted.
+When this box is checked then any emails with a sender that matches your search term will be deleted.  
+See the NOTE at the end for a of couple details related to this
 
 **CC and BCC**:  
-If either of these boxes are checked then any emails with your search term in the CC or BCC fields are deleted.
-See the NOTE at the end for a couple details
+If either of these boxes are checked then any emails with your search term in the CC or BCC fields are deleted.  
+See the NOTE at the end for a of couple details related to this
 
 **Subject**:  
 If checked, any emails with your search term as the subject will be deleted
@@ -77,11 +78,12 @@ Spawns a new row (or focuses on an empty one) for you to add a rule to. You can 
 
 
 **Note**:  
-For any categories that usually require email addresses (From, CC and BCC), a query like `joe@example.com` will return all emails concerning that address. A query like `joe` will return all emails concerning email addresses that start with `joe`. However, a search like `joe@example` will return nothing because that is an invalid email address.
+Any categories that usually require email addresses (From, CC and BCC) must have a valid email address given to them. A query like `joe@example.com` will return all emails concerning that address, as expected. A query like `joe`, while not a valid email addrress, will return all emails concerning email addresses that start with the word `joe`. However, a search like `joe@example` will return nothing because that is an invalid email address.  
+This is just down to how the gmail search algorithm works.
 
-#### Step 3: Saving settings
+### Step 3: Saving settings
 
-![The buttons to save your settings](img/usage-save-settings.png)
+![The buttons to save your settings](img/usage-saving-settings.png)  
 
 **Save these settings**:  
 Saves your current email, password and filtering rules to a file called `settings.json` in the same directory as the code. This file will store all these details in PLAIN TEXT, meaning anyone can open it and read your password.
@@ -93,9 +95,9 @@ Clears your current configuration and fills all options with whatever is saved i
 **Load your saved settings on launch**:  
 If checked then when the program next starts up it will attempt to load whatever is saved in the `settings.json` file and autofill in the prompts
 
-#### Step 4: Deleting the emails
+### Step 4: Deleting the emails
 
-![The run buttons](img/usage-run.png)
+![The run buttons](img/usage-run.png)  
 
 **The notice**:  
 Just in case the program goes rogue and deletes all your emails.
@@ -108,7 +110,7 @@ I suggest that if you run this you should go to your gmail's "trash" folder and 
 **Run the current config when the computer starts** [Windows Only]:  
 Create a script that will run this program whenever you sign into your account.  
 
-It will create a the folder `~\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\EmailBlockerLite` and copy the embedded pyton interpreter, `EmailBlockerLite.py` and `filter_emails.py` to that directory. Then, similar to the run button, this will take the configuration you have currently (not the save file but your currrent on-screen settings) but it will save them to another `settings.json` file in the newly created directory.  
+It will create a the folder `~\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\EmailBlockerLite` and copy the embedded python interpreter, `EmailBlockerLite.py` and `filter_emails.py` to that directory. Then, similar to the run button, this will take the configuration you have currently (not the save file but your currrent on-screen settings) but it will save them to another `settings.json` file in the newly created directory.  
 Finally, it creates the file `~\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\EmailBlocker.bat`, which will run the program.
 
 **Remove startup tasks** [Windows Only]:  
