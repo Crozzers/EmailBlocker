@@ -17,38 +17,47 @@ def output(item, *args, **kwargs):
     except:
         print(item)
 
+def load_settings_from_file(file):
+    try:
+        with open(file, 'r', encoding='utf-8') as f:
+            settings = json.load(f)
+        # some compatibility for older settings files
+        if 'filters' not in settings.keys():
+            settings['filters'] = []
+        else:
+            for i in range(len(settings['filters'])):
+                if 'sub_filters' not in settings['filters'][i].keys():
+                    settings['filters'][i]['sub_filters'] = []
+        if 'blocked_emails' in settings.keys():
+            for email in settings['blocked_emails']:
+                settings['filters'].append(
+                    {
+                        'search': email,
+                        'from': True,
+                        'cc': False,
+                        'bcc': False,
+                        'subject': False,
+                        'body': False,
+                        'all_match': True,
+                        'exact_match': True,
+                        'sub_filters': []
+                    }
+                )
+            del(settings['blocked_emails'])
+    except:
+        settings = {
+            'user_email': '',
+            'user_password': '',
+            'load_settings_on_launch': True,
+            'filters': []
+        }
+    return settings
+
 def get_settings():
     if 'emailblocker_settings' in globals().keys():
         return globals()['emailblocker_settings']
     else:
-        try:
-            with open(os.path.join(os.path.dirname(__file__), 'settings.json'), 'r', encoding='utf-8') as f:
-                settings = json.load(f)
-            # some compatibility for older settings files
-            if 'filters' not in settings.keys():
-                settings['filters'] = []
-            if 'blocked_emails' in settings.keys():
-                for email in settings['blocked_emails']:
-                    settings['filters'].append(
-                        {
-                            'search': email,
-                            'from': True,
-                            'cc': False,
-                            'bcc': False,
-                            'subject': False,
-                            'body': False,
-                            'all_match': True,
-                            'exact_match': True
-                        }
-                    )
-                del(settings['blocked_emails'])
-        except:
-            settings = {
-                'user_email': '',
-                'user_password': '',
-                'load_settings_on_launch': True,
-                'filters': []
-            }
+        settings = load_settings_from_file(os.path.join(os.path.dirname(__file__), 'settings.json'))
         globals()['emailblocker_settings'] = settings
         return settings
 
@@ -237,10 +246,13 @@ class StartupTask:
                     output('Failed to update startup tasks: Could not detect version of the task', 'orange')
                 elif ver<version.Version(__version__):
                     output('Updating startup tasks')
+                    # get the config for that file
+                    settings = load_settings_from_file(os.path.join(appdata_dir, 'settings.json'))
                     # remove startup tasks
                     StartupTask.destroy()
                     # add them back
                     StartupTask.create()
+                    save_settings(settings = settings, file = os.path.join(appdata_dir, 'settings.json'))
                     output('Startup tasks updated', 'green')
             elif isdir(appdata_dir) or isfile(pjoin(startup_dir, 'EmailBlocker.bat')):
                 # if only one is detected then it's likely that the other was deleted
