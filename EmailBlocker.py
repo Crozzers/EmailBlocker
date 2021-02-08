@@ -300,14 +300,7 @@ def run():
             for filter in config['filters']:
                 output(f'Searching for emails that match "{filter["search"]}"')
                 email_ids+=server.search(
-                    filter['search'],
-                    from_ = filter['from'],
-                    cc=filter['cc'],
-                    bcc=filter['bcc'],
-                    subject=filter['subject'],
-                    body=filter['body'],
-                    all_match=filter['all_match'],
-                    exact_match=filter['exact_match']
+                    filter['search'], **filter
                 )
 
             output(f'Found {len(email_ids)} email{"s" if len(email_ids)>1 or len(email_ids)==0 else ""}')
@@ -317,7 +310,7 @@ def run():
                     output(f'Sending {len(email_ids)} email{"s" if len(email_ids)>1 else ""} to the bin ({i+1}/{len(email_ids)})')
                     server.delete_email(email_ids[i])
 
-        output('Done!', 'green')
+        output(f'Done! Removed {len(email_ids)} email{"s" if len(email_ids)>1 or len(email_ids)==0 else ""}', 'green')
     except Exception as e:
         output(f'Failed: {e}', 'red')
 
@@ -419,6 +412,28 @@ def check_for_update():
                 else:
                     output('No updates are available')
 
+def validate_filter(filter: dict, sub=False):
+    for i in (('search', ''), ('from', False), ('cc', False), ('bcc', False), ('subject', False), ('body', False), ('all_match', True), ('exact_match', True)):
+        if i[0] not in filter.keys():
+            filter[i[0]] = i[1]
+        elif type(filter[i[0]])!=type(i[1]):
+            raise TypeError(f'filter key "{i[0]}" contains invalid type {type(filter[i[0]])}, expected {type(i[1])}')
+        else:
+            pass
+    if sub:
+        # only allow the sub-filtering to go 1 level deep
+        if 'sub_filters' in filter.keys():
+            del(filter['sub_filters'])
+    else:
+        if 'sub_filters' not in filter.keys() or type(filter['sub_filters'])!=list:
+            filter['sub_filters'] = []
+        else:
+            sub_filters = []
+            for sub_filter in filter['sub_filters']:
+                sub_filters.append(validate_filter(sub_filter, sub=True))
+            filter['sub_filters'] = sub_filters
+    return filter
+
 def validate_config(config:dict):
     for i in ('user_email', 'user_password', 'filters'):
         if i not in config.keys():
@@ -429,14 +444,7 @@ def validate_config(config:dict):
         raise ValueError('Invalid password')
     filters = []
     for filter in config['filters']:
-        for i in (('search', ''), ('from', False), ('cc', False), ('bcc', False), ('subject', False), ('body', False), ('all_match', True), ('exact_match', True)):
-            if i[0] not in filter.keys():
-                filter[i[0]] = i[1]
-            elif type(filter[i[0]])!=type(i[1]):
-                raise TypeError(f'filter key "{i[0]}" contains invalid type {type(filter[i[0]])}, expected {type(i[1])}')
-            else:
-                pass
-        filters.append(filter)
+        filters.append(validate_filter(filter))
     config['filters'] = filters
     return config
 

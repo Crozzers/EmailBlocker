@@ -161,9 +161,13 @@ class FilterManager(tk.Frame):
         self.grid_columnconfigure(0, weight=1)
 
         #self._init()
-    def _format_filter(self, filter):
+    def _format_filter(self, filter, sub=False):
         if type(filter)==tuple:
-            search, from_, cc, bcc, subject, body, all_match, exact_match = filter
+            if len(filter)==9:
+                search, from_, cc, bcc, subject, body, all_match, exact_match, sub_filters = filter
+            else:
+                search, from_, cc, bcc, subject, body, all_match, exact_match = filter
+                sub_filters = None
             filter = {
                 'search': search,
                 'from': from_,
@@ -172,41 +176,70 @@ class FilterManager(tk.Frame):
                 'subject': subject,
                 'body': body,
                 'all_match': all_match,
-                'exact_match': exact_match
+                'exact_match': exact_match,
+                'sub_filters': sub_filters
             }
+            if filter['sub_filters'] == None:
+                del(filter['sub_filters'])
         if filter == None:
             filter = {}
         if type(filter)==dict:
-            if 'search' not in filter.keys() or type(filter['search'])!=str:
-                filter['search'] = ''
-            for i in ('from', 'cc', 'bcc', 'subject', 'body', 'all_match', 'exact_match'):
-                if i not in filter.keys():
-                    if 'match' in i: # because all_match and exact_match should default to True
-                        filter[i] = True
-                    else:
-                        filter[i] = False
-                elif type(filter[i])==int:
-                    filter[i] = bool(filter[i])
-                elif type(filter[i])==bool:
-                    pass
-                else:
-                    if 'match' in i: # because all_match and exact_match should default to True
-                        filter[i] = True
-                    else:
-                        filter[i] = False
+            filter = EmailBlocker.validate_filter(filter, sub=sub)
         return filter
-    def _create(self, item, focus=False):
-        e = tk.Entry(self, bd=1, width=50)
+    def _create(self, item, focus=False, sub=False):
+        row = None
+        configs = (50, 'nesw')
+        major_rows = {}
+        minor_rows = []
+        for i in self.rows():
+            info = self.get_row(i)
+            if info!=False:
+                if 'sub_filters' in info.keys():
+                    major_rows[i] = info
+                else:
+                    minor_rows.append(i)
+
+        if sub:
+            current = self.focus_get()
+            try:
+                if '!filtermanager.!' in str(current):
+                    # find the "main rule" by finding the nearest 10
+                    nearest_major = current.grid_info()['row']
+                    if nearest_major%10!=0:
+                        nearest_major = nearest_major - (nearest_major%10)
+                    # check if max number of sub-filters exceeded
+                    if len(major_rows[nearest_major]['sub_filters'])>=9:
+                        output('Can have maximum of 9 sub-rules', 'orange')
+                        return
+                    # find nearest empty row
+                    for i in range(1, 10):
+                        if nearest_major+i not in minor_rows:
+                            row = nearest_major+i
+                            break
+                    ### move all widgets below this one down a row to stop overlaps
+            except:
+                pass
+            configs = (35, 'nes')
+        else:
+            row = (len(major_rows)*10)+10
+            # leave the first 10 rows reserved because I don't want to deal with them
+            # the labels at the top are packed to row 1 and I don't want to offset
+            # all my calculations by 1 because that's ugly
+
+        e = tk.Entry(self, bd=1, width=configs[0])
         e.insert(0, item['search'])
-        e.grid(column=0, sticky='nesw')
+        e.grid(row=row, column=0, sticky=configs[1])
         if focus:
             e.focus()
+        row = e.grid_info()['row']
         bg='white'
-        if e.grid_info()['row']%2==0:
+        if row%10==0 or row==10:
+            if (row/10)%2==0:
+                bg='#d9d9d9'
+        elif row%2==0:
             bg = '#d9d9d9'
         e.config(bg=bg)
 
-        row = e.grid_info()['row']
         a = 1
         ret = []
         for i in (item['from'], item['cc'], item['bcc'], item['subject'], item['body'], item['all_match'], item['exact_match']):
@@ -220,47 +253,69 @@ class FilterManager(tk.Frame):
             a+=1
         tk.Button(self, text='Delete', relief='groove', command=lambda:self.remove_row(row)).grid(row=row, column=a, sticky='nesw')
         return e, *ret
-    def remove_row(self, row):
+    def remove_row(self, row, update=True):
         try:
+            r = self.get_row(row)
             for w in self.grid_slaves(row=row):
                 w.grid_remove()
                 w.grid_forget()
                 w.destroy()
 
-            a=0
-            for i in range(1, self.grid_size()[1]):
-                # the order of the background swapping is reversed here because look up and behold!
-                # this loop starts on an ODD number. The others start at 0
-                bg='#d9d9d9'
-                if a%2==0:
-                    bg = 'white'
-                if len(self.grid_slaves(row=i))>0:
-                    for w in self.grid_slaves(row=i):
-                        w.config(bg=bg)
-                        w.update()
-                    a+=1
+            if r!=False:
+                if 'sub_filters' in r.keys():
+                    for i in range(len(r['sub_filters'])):
+                        self.remove_row(row+i+1, update=False)
+
+            if update:
+                a=0
+                for i in range(10, self.grid_size()[1]):
+                    bg='white'
+                    if a%10==0 or a==0:
+                        if (a/10)%2==0:
+                            bg='#d9d9d9'
+                    elif a%2==0:
+                        bg = '#d9d9d9'
+
+                    if len(self.grid_slaves(row=i))>0:
+                        for w in self.grid_slaves(row=i):
+                            w.config(bg=bg)
+                            w.update()
+                        a+=1
+
         except tk.TclError:
             pass
-    def add_row(self, value=None):
+    def add_row(self, value=None, sub=False):
         if value!=None:
             value = self._format_filter(value)
             self._create(value)
         else:
             try:
-                rows = self.rows()
-                for r in rows:
+                candidates = []
+                if sub:
+                    nearest_major = self.focus_get()
+                    if '!filtermanager.!' in str(nearest_major):
+                        nearest_major = nearest_major.grid_info()['row']
+                    else:
+                        nearest_major = self.rows()[0]
+                    nearest_major = nearest_major - (nearest_major % 10)
+                    candidates = list(range(nearest_major+1, nearest_major+10))
+                else:
+                    for r in self.rows():
+                        if r%10==0:
+                            candidates.append(r)
+
+                for r in candidates:
                     row = self.get_row(r)
-                    if row['search'] == '' and all(row[k]==False for k,v in row.items() if 'match' not in k and type(v)==bool):
-                        # if theres an un-filled entry then focus on that instead of adding more rows
-                        for i in self.grid_slaves(row=r):
-                            if type(i)==tk.Entry:
-                                i.focus()
+                    if row!=False and row['search'] == '' and all(row[k]==False for k,v in row.items() if 'match' not in k and type(v)==bool):
+                        for w in self.grid_slaves(r):
+                            if type(w)==tk.Entry:
+                                w.focus()
                                 return
                 # if there are no un-filled entries then create one
-                self._create(self._format_filter(None), focus=True)
+                self._create(self._format_filter(None), focus=True, sub=sub)
             except IndexError:
                 # if there are no un-filled entries then create one
-                self._create(self._format_filter(None), focus=True)
+                self._create(self._format_filter(None), focus=True, sub=sub)
     def load_filters(self):
         for i in self.grid_slaves():
             if i not in self.top_bar:
@@ -268,13 +323,17 @@ class FilterManager(tk.Frame):
 
         for i in get_settings()['filters']:
             self._create(self._format_filter(i))
+            if 'sub_filters' in i.keys():
+                for sub in i['sub_filters']:
+                    self._create(self._format_filter(sub), sub=True)
     def get_filters(self):
         config = []
 
         for row in self.rows():
-            setting = self.get_row(row)
-            if setting!={} and not(setting['search']=='' and all(i==0 for i in setting.values() if type(i)==int)):
-                config.append(self._format_filter(setting))
+            if row%10==0:
+                setting = self.get_row(row)
+                if setting!={} and not(setting['search']=='' and all(i==0 for i in setting.values() if type(i)==int)):
+                    config.append(self._format_filter(setting))
         return config
     def rows(self):
         rows = []
@@ -287,13 +346,27 @@ class FilterManager(tk.Frame):
         setting = {}
         if row<0:
             row = self.rows()[row]
+
         for widget in self.grid_slaves(row=row):
-            if type(widget)==tk.Entry:
+            if type(widget) == tk.Entry:
                 setting['search'] = widget.get()
+                if widget.grid_info()['row']%10==0:
+                    sub_filters = []
+                    for i in range(1, 10):
+                        tmp = self.get_row(row=widget.grid_info()['row']+i)
+                        if tmp!=False and 'sub_filters' not in tmp.keys():
+                            sub_filters.append(tmp)
+                    setting['sub_filters'] = sub_filters
             elif f'checkbutton' in widget._name:
                 name = int(widget._name[-1])
                 setting[names[name-1]] = widget.variable.get()
-        return self._format_filter(setting)
+
+        if setting=={}:
+            return False
+        elif 'sub_filters' not in setting.keys():
+            return self._format_filter(setting, sub=True)
+        else:
+            return self._format_filter(setting)
 
 class Window():
     def __init__(self):
@@ -332,6 +405,7 @@ class Window():
         self.filter_manager.pack(**dk)
         #self.filter_manager.pack(side='top', fill='both', expand=True)
         tk.Button(self.blocking_frame, text='Add blocking rule', command=lambda:[self.filter_manager.add_row(),tmp.children_bind_scroll()], relief='groove').pack(**dk)
+        tk.Button(self.blocking_frame, text='Add blocking sub-rule', command=lambda:[self.filter_manager.add_row(sub=True),tmp.children_bind_scroll()], relief='groove').pack(**dk)
 
         self.actions_frame = tk.Frame(self.root)
         self.actions_frame.pack(pady=15, **dk)

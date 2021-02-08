@@ -24,11 +24,21 @@ class Server():
         Select folder to search from
         '''
         self.server.select(label)
-    def search(self, query, from_=False, cc=False, bcc=False, subject=False, body=False, all_match=True, exact_match=True):
+    def search(self, query, from_=False, cc=False, bcc=False, subject=False, body=False, all_match=True, exact_match=True, sub_filters = [], **kwargs):
         '''
         Searches the current label for emails matching the query
         Returns a list of email UIDs
+
+        If kwargs isn't empty and contains the key 'from' then we override the from_ kwarg with that value.
+        If it has the key 'search' then we override query with that
+        Mostly just to make it more convenient to dump kwargs into this func via dict unpacking
         '''
+        if kwargs!={}:
+            if 'from' in kwargs.keys():
+                from_=kwargs['from']
+            if 'search' in kwargs.keys():
+                query = kwargs['search']
+
         lookup = []
         if from_:
             lookup.append(f'FROM "{query}"')
@@ -41,6 +51,9 @@ class Server():
         if body:
             lookup.append(f'BODY "{query}"')
 
+        if lookup==[]:
+            raise Exception('Could not create valid search query from your arguments')
+
         if all_match:
             lookup = f'({" ".join(lookup)})'
             _, result = self.server.search(None, lookup)
@@ -51,11 +64,22 @@ class Server():
                 _, tmp = self.server.search(None, l)
                 result+=tmp[0].split()
 
+        if sub_filters == []:
+            full_result = result
+        else:
+            full_result = []
+            sub_searches = []
+            for sub in sub_filters:
+                sub_searches.append(self.search(query, **sub))
+            for item in result:
+                if all(item in sub for sub in sub_searches):
+                    full_result.append(item)
+
         if not exact_match:
-            return result
+            return full_result
 
         filtered = []
-        emails = self.get_emails_by_id(result)
+        emails = self.get_emails_by_id(full_result)
         for e in emails:
             for i in ('from_', 'cc', 'bcc', 'subject', 'body'):
                 # this bit here is just grabbing the variables associated with the above strings
@@ -63,6 +87,10 @@ class Server():
                 # just coz I couldn't be bothered to type these 5 variable names twice
                 # or to do a bunch of if/else statements
                 if locals()[i]:
+                    if i=='from_':
+                        tmp = e[i.replace('_','')]
+                        if query in (tmp['raw'], tmp['email']):
+                            filtered.append(e['id'])
                     if query==e[i.replace('_','')]:
                         filtered.append(e['id'])
                         break
@@ -95,14 +123,30 @@ class Server():
                 head_data = parser.parsestr(data[1][0][1].decode())
                 info = {
                     'id': email_id,
-                    'from': head_data['from'],
+                    'from': {
+                        'raw': head_data['from'],
+                        'email': None,
+                        'name': None
+                    },
                     'to': head_data['to'],
                     'cc': head_data['cc'],
                     'bcc': head_data['bcc'],
                     'date': head_data['date'],
                     'subject': head_data['subject']
                     }
-                # requires some extra parsing to filter out the junk
+                # the "from" of an email is usually returned as "John Smith <johnsmith@gmail.com>"
+                # so let's parse that real quick
+                from_ = info['from']['raw']
+                if email_valid(from_):
+                    info['from']['email'] = from_
+                else:
+                    from_ = from_.split(' ')
+                    if from_[-1].startswith('<') and from_[-1].endswith('>'):
+                        if email_valid(from_[-1][1:-1]):
+                            info['from']['email'] = from_[-1][1:-1]
+                            info['from']['name'] = ' '.join(from_[:-1])
+
+                # the body requires some extra parsing to filter out the junk
                 boundary = head_data.get_boundary()
                 try:
                     body = head_data.get_payload(decode=True).replace('\r\n', '\n').split('--'+boundary)
@@ -140,4 +184,5 @@ class Server():
         self.logged_in = False
 
 def email_valid(email):
-    return re.fullmatch(r'[^@]+@[^@]+\.[^@]+', email)
+    #return re.fullmatch(r'[^@]+@[^@]+\.[^@]+', email)
+    return re.fullmatch(r'\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', email, re.I)
