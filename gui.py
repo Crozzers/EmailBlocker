@@ -558,6 +558,11 @@ class Window():
             self.enable('actions_frame')
 
 def scrollable_popup_yn(msg, title=''):
+    # make this statement because that attr is only defined
+    # when the GUI is active, meaning that this func won't run
+    # without the GUI
+    Window.instance
+
     class tmp_vars():
         yes = False
         no = False

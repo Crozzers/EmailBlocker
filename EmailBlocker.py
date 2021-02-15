@@ -286,7 +286,7 @@ class StartupTask:
         except Exception as e:
             output(f'Failed to update startup tasks: {e}', 'red')
 
-def run():
+def run(skip_confirm=False):
     try:
         config = get_settings()
 
@@ -320,29 +320,30 @@ def run():
             output(f'Found {len(email_ids)} email{"s" if len(email_ids)>1 or len(email_ids)==0 else ""}, grabbing data from server')
 
             if len(email_ids)>0:
-                msg = []
-                tmp = 1
-                for e in server.get_emails_by_id(email_ids, generator=True):
-                    output(f'Grabbing email data ({tmp}/{len(email_ids)})')
-                    msg.append(f"From {e['from']['email']} to {e['to']}\n\tSubject: {e['subject']}\n\n")
-                    tmp+=1
+                if not skip_confirm:
+                    msg = []
+                    tmp = 1
+                    for e in server.get_emails_by_id(email_ids, generator=True):
+                        output(f'Grabbing email data ({tmp}/{len(email_ids)})')
+                        msg.append(f"From {e['from']['email']} to {e['to']}\n\tSubject: {e['subject']}\n\n")
+                        tmp+=1
 
-                try:
-                   msg_box = gui.scrollable_popup_yn(msg, title='Delete these emails?')
-                except:
-                    for i in msg:
-                        print(i)
-                    while True:
-                        inp = input('Delete these emails? (y/n) : ')
-                        if inp.lower()=='y':
-                            msg_box = True
-                            break
-                        elif inp.lower()=='n':
-                            msg_box = False
-                            break
-                        else:
-                            print('Invalid respone\n')
-                if msg_box:
+                    try:
+                        msg_box = gui.scrollable_popup_yn(msg, title='Delete these emails?')
+                    except:
+                        for i in msg:
+                            print(i)
+                        while True:
+                            inp = input('Delete these emails? (y/n) : ')
+                            if inp.lower()=='y':
+                                msg_box = True
+                                break
+                            elif inp.lower()=='n':
+                                msg_box = False
+                                break
+                            else:
+                                print('Invalid respone\n')
+                if msg_box or skip_confirm:
                     for i in range(len(email_ids)):
                         output(f'Sending {len(email_ids)} email{"s" if len(email_ids)>1 else ""} to the bin ({i+1}/{len(email_ids)})')
                         server.delete_email(email_ids[i])
@@ -519,6 +520,7 @@ if __name__=='__main__':
         parser.add_argument('--body', action='store_true', help='Filter by contents of body')
         parser.add_argument('--no-exact-match', action='store_true', help='Filter if the field contains the search term even if the two don\'t completely match')
         parser.add_argument('--no-all-match', action='store_true', help='The query doesn\'t have to appear in ALL specified fields, just one of them')
+        parser.add_argument('-y', '--yes', action='store_true', help='skip the confirmation prompt')
 
         args = parser.parse_args()
 
@@ -562,4 +564,4 @@ if __name__=='__main__':
                     print(f'Failed to parse config: {e}')
                     sys.exit(1)
         set_settings(config)
-        run()
+        run(skip_confirm=args.yes)
