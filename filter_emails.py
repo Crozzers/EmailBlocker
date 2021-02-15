@@ -1,4 +1,4 @@
-import imaplib, re
+import imaplib, re, base64
 from email.parser import HeaderParser
 
 '''
@@ -12,6 +12,7 @@ class Server():
         Initialize the server
         '''
         self.logged_in = False
+        self.labels = None
         self.server = imaplib.IMAP4_SSL(url)
         if username is not None and password is not None:
             self.login(username, password)
@@ -40,17 +41,21 @@ class Server():
 
         raise Exception(out[1].decode())
     def get_labels(self):
-        raw = self.server.list()[1]
-        labels = {}
-        for r in raw:
-            v = r.decode().replace('"', '').split('/', 1)[1].lstrip(' ')
-            if v=='[Gmail]':
-                continue
-            if v.startswith('[Gmail]/'):
-                k = v.replace('[Gmail]/', '')
-            else:
-                k = v
-            labels[k] = v
+        if self.labels is not None:
+            return self.labels
+        else:
+            raw = self.server.list()[1]
+            labels = {}
+            for r in raw:
+                v = r.decode().replace('"', '').split('/', 1)[1].lstrip(' ')
+                if v=='[Gmail]':
+                    continue
+                if v.startswith('[Gmail]/'):
+                    k = v.replace('[Gmail]/', '')
+                else:
+                    k = v
+                labels[k] = v
+            self.labels = labels
         return labels
     def search(self, query, from_=False, cc=False, bcc=False, subject=False, body=False, all_match=True, exact_match=True, sub_filters = [], **kwargs):
         '''
@@ -130,20 +135,10 @@ class Server():
         '''
         _, ids = self.server.search(None, 'all')
         return ids[0].split()
-    def get_emails_by_id(self, id):
-        '''
-        Get info about an email via ID
-
-        Args:
-            id: can be UID or list of UIDs
-
-        Returns:
-            list: list of dicts
-        '''
+    def __get_emails_by_id(self, id):
         if type(id)!=list:
             id = [id]
 
-        emails = []
         for email_id in id:
             try:
                 data = self.server.fetch(email_id, '(BODY.PEEK[HEADER.FIELDS (SUBJECT FROM)] RFC822)')
@@ -160,8 +155,20 @@ class Server():
                     'cc': head_data['cc'],
                     'bcc': head_data['bcc'],
                     'date': head_data['date'],
-                    'subject': head_data['subject']
+                    'subject': head_data.get('subject')
                     }
+                if '?utf-8?B?' in info['subject']:
+                    # manually decode this because all email protocols are garbage
+                    try:
+                        subs = []
+                        for i in info['subject'].split(' '):
+                            if i != '':
+                                subs.append(
+                                    base64.b64decode(i.replace('?utf-8?B?', '')).decode()
+                                )
+                        info['subject'] = ''.join(subs)
+                    except:
+                        pass
                 # the "from" of an email is usually returned as "John Smith <johnsmith@gmail.com>"
                 # so let's parse that real quick
                 from_ = info['from']['raw']
@@ -192,10 +199,24 @@ class Server():
                     if plaintext!=None:
                         break
                 info['body'] = plaintext
-                emails.append(info)
+                yield info
             except:
                 pass
-        return emails
+    def get_emails_by_id(self, id, generator=False):
+        '''
+        Get info about an email via ID
+
+        Args:
+            id: can be UID or list of UIDs
+            generator: whether to generate these or to return complete list
+
+        Returns:
+            list: list of dicts
+        '''
+        if generator:
+            return self.__get_emails_by_id(id)
+        else:
+            return [i for i in self.__get_emails_by_id(id)]
     def delete_email(self, email_id):
         if type(email_id)==dict and 'id' in email_id.keys():
             email_id = email_id['id']

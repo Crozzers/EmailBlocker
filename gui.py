@@ -557,6 +557,30 @@ class Window():
             EmailBlocker.check_for_update()
             self.enable('actions_frame')
 
+def scrollable_popup_yn(msg, title=''):
+    class tmp_vars():
+        yes = False
+        no = False
+    p = tk.Toplevel()
+    p.title(title)
+    s = ScrollableFrame(p)
+    s.pack(side='top', fill='both', expand=True)
+    if type(msg) == str:
+        msg = [msg]
+    for m in msg:
+        tk.Label(s, text=m, anchor='w', justify='left').pack(side='top', fill='both', expand=True)
+    tmp = tk.Frame(p)
+    tmp.pack(side='bottom')
+
+    vars = tmp_vars()
+    tk.Button(tmp, text='Accept', command=lambda:setattr(vars, 'yes', True), height=3).pack(side='left')
+    tk.Button(tmp, text='Deny', command=lambda:setattr(vars, 'no', True), height=3).pack(side='right')
+
+    while vars.yes == False and vars.no == False:
+        time.sleep(0.1)
+    p.destroy()
+    return vars.yes
+
 if __name__=='__main__':
     global window
     window = Window()

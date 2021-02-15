@@ -267,7 +267,7 @@ class StartupTask:
                     )
                 except:
                     while True:
-                        inp = input('An invalid startup task was detected. Would you like to repair it? (y/n)')
+                        inp = input('An invalid startup task was detected. Would you like to repair it? (y/n) : ')
                         if inp.lower()=='y':
                             msg_box = True
                             break
@@ -317,12 +317,38 @@ def run():
                         filter['search'], **filter
                     )
 
-            output(f'Found {len(email_ids)} email{"s" if len(email_ids)>1 or len(email_ids)==0 else ""}')
+            output(f'Found {len(email_ids)} email{"s" if len(email_ids)>1 or len(email_ids)==0 else ""}, grabbing data from server')
 
             if len(email_ids)>0:
-                for i in range(len(email_ids)):
-                    output(f'Sending {len(email_ids)} email{"s" if len(email_ids)>1 else ""} to the bin ({i+1}/{len(email_ids)})')
-                    server.delete_email(email_ids[i])
+                msg = []
+                tmp = 1
+                for e in server.get_emails_by_id(email_ids, generator=True):
+                    output(f'Grabbing email data ({tmp}/{len(email_ids)})')
+                    msg.append(f"From {e['from']['email']} to {e['to']}\n\tSubject: {e['subject']}\n\n")
+                    tmp+=1
+
+                try:
+                   msg_box = gui.scrollable_popup_yn(msg, title='Delete these emails?')
+                except:
+                    for i in msg:
+                        print(i)
+                    while True:
+                        inp = input('Delete these emails? (y/n) : ')
+                        if inp.lower()=='y':
+                            msg_box = True
+                            break
+                        elif inp.lower()=='n':
+                            msg_box = False
+                            break
+                        else:
+                            print('Invalid respone\n')
+                if msg_box:
+                    for i in range(len(email_ids)):
+                        output(f'Sending {len(email_ids)} email{"s" if len(email_ids)>1 else ""} to the bin ({i+1}/{len(email_ids)})')
+                        server.delete_email(email_ids[i])
+                else:
+                    output(f'Cancelled. Removed 0 emails', 'green')
+                    return
 
         output(f'Done! Removed {len(email_ids)} email{"s" if len(email_ids)>1 or len(email_ids)==0 else ""}', 'green')
     except Exception as e:
