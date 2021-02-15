@@ -3,6 +3,31 @@ sys.path.append(os.path.dirname(__file__))
 import imaplib, re
 import filter_emails
 
+def validate_filter(filter: dict, sub=False):
+    for i in (('search', ''), ('from', False), ('cc', False), ('bcc', False), ('subject', False), ('body', False), ('label', 'Inbox'), ('all_match', True), ('exact_match', True)):
+        if i[0] not in filter.keys():
+            filter[i[0]] = i[1]
+        elif type(filter[i[0]])!=type(i[1]):
+            raise TypeError(f'filter key "{i[0]}" contains invalid type {type(filter[i[0]])}, expected {type(i[1])}')
+        else:
+            pass
+    if sub:
+        # only allow the sub-filtering to go 1 level deep
+        if 'sub_filters' in filter.keys():
+            del(filter['sub_filters'])
+        # only top-level filters can have the 'label' property
+        if 'label' in filter.keys():
+            del(filter['label'])
+    else:
+        if 'sub_filters' not in filter.keys() or type(filter['sub_filters'])!=list:
+            filter['sub_filters'] = []
+        else:
+            sub_filters = []
+            for sub_filter in filter['sub_filters']:
+                sub_filters.append(validate_filter(sub_filter, sub=True))
+            filter['sub_filters'] = sub_filters
+    return filter
+
 def validate_config(config:dict):
     for i in ('user_email', 'user_password', 'filters'):
         if i not in config.keys():
@@ -13,14 +38,7 @@ def validate_config(config:dict):
         raise ValueError('Invalid password')
     filters = []
     for filter in config['filters']:
-        for i in (('search', ''), ('from', False), ('cc', False), ('bcc', False), ('subject', False), ('body', False), ('all_match', True), ('exact_match', True)):
-            if i[0] not in filter.keys():
-                filter[i[0]] = i[1]
-            elif type(filter[i[0]])!=type(i[1]):
-                raise TypeError(f'filter key "{i[0]}" contains invalid type {type(filter[i[0]])}, expected {type(i[1])}')
-            else:
-                pass
-        filters.append(filter)
+        filters.append(validate_filter(filter))
     config['filters'] = filters
     return config
 
@@ -93,23 +111,24 @@ if __name__=='__main__':
             print(f'Failed to log in: {e}')
             sys.exit(1)
 
-
-        print('Selecting the inbox as the target')
-        server.select_label('inbox')
-
         email_ids = []
         for filter in config['filters']:
-            print(f'Searching for emails that match "{filter["search"]}"')
-            email_ids+=server.search(
-                filter['search'],
-                from_ = filter['from'],
-                cc=filter['cc'],
-                bcc=filter['bcc'],
-                subject=filter['subject'],
-                body=filter['body'],
-                all_match=filter['all_match'],
-                exact_match=filter['exact_match']
-            )
+            print(f'Searching for emails that match "{filter["search"]}" in label "{filter["label"]}"')
+            try:
+                server.select_label(filter['label'])
+            except Exception as e:
+                print(f'Failed to select label "{filter["label"]}": {e}')
+            else:
+                email_ids+=server.search(
+                    filter['search'],
+                    from_ = filter['from'],
+                    cc=filter['cc'],
+                    bcc=filter['bcc'],
+                    subject=filter['subject'],
+                    body=filter['body'],
+                    all_match=filter['all_match'],
+                    exact_match=filter['exact_match']
+                )
 
         print(f'Found {len(email_ids)} email{"s" if len(email_ids)>1 or len(email_ids)==0 else ""}')
 

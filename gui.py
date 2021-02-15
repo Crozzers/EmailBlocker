@@ -4,6 +4,7 @@ from tkinter import messagebox
 import EmailBlocker
 from EmailBlocker import __version__, filter_emails, output, quick_thread, get_settings, set_settings, save_settings
 import os
+import time
 
 class WrappingLabel(tk.Label):
     def __init__(self, container, autowrap=True, maxheight=None, **kwargs):
@@ -77,6 +78,9 @@ class ScrollableFrame(tk.Frame):
             if i.startswith(('winfo', 'pack', 'place', 'grid')):
                 setattr(self, 'scroll_'+i, getattr(self, i))
                 setattr(self, i, getattr(self.__parent, i))
+        for i in dir(self.__canvas):
+            if i.startswith(('yview', 'xview')):
+                setattr(self, i, getattr(self.__canvas, i))
 
         self.bind("<Configure>",self.__config)
         self.autobind = autobind
@@ -153,7 +157,7 @@ class FilterManager(tk.Frame):
         self.top_bar = []
         a = 0
         # the '' at the end makes the small square of space above the delete buttons grey too
-        for i in ('Search Term', 'From', 'CC', 'BCC', 'Subject', 'Body', 'Search must be present\nin ALL fields', 'Must match the\nsearch exactly', ''):
+        for i in ('Search Term', 'Label', 'From', 'CC', 'BCC', 'Subject', 'Body', 'Search must be present\nin ALL fields', 'Must match the\nsearch exactly', ''):
             self.top_bar.append(tk.Label(self, text=i, bg='#808080', anchor='nw', height=2))
             self.top_bar[-1].grid(row=0, column = a, sticky='nesw')
             a+=1
@@ -163,10 +167,11 @@ class FilterManager(tk.Frame):
         #self._init()
     def _format_filter(self, filter, sub=False):
         if type(filter)==tuple:
-            if len(filter)==9:
-                search, from_, cc, bcc, subject, body, all_match, exact_match, sub_filters = filter
+            if len(filter)==10:
+                search, from_, cc, bcc, subject, body, label, all_match, exact_match, sub_filters = filter
             else:
                 search, from_, cc, bcc, subject, body, all_match, exact_match = filter
+                label = None
                 sub_filters = None
             filter = {
                 'search': search,
@@ -175,12 +180,15 @@ class FilterManager(tk.Frame):
                 'bcc': bcc,
                 'subject': subject,
                 'body': body,
+                'label': label,
                 'all_match': all_match,
                 'exact_match': exact_match,
                 'sub_filters': sub_filters
             }
             if filter['sub_filters'] == None:
                 del(filter['sub_filters'])
+            if filter['label'] == None:
+                del(filter['label'])
         if filter == None:
             filter = {}
         if type(filter)==dict:
@@ -191,7 +199,9 @@ class FilterManager(tk.Frame):
         configs = (50, 'nesw')
         major_rows = {}
         minor_rows = []
+        taken = []
         for i in self.rows():
+            taken.append(i)
             info = self.get_row(i)
             if info!=False:
                 if 'sub_filters' in info.keys():
@@ -216,12 +226,13 @@ class FilterManager(tk.Frame):
                         if nearest_major+i not in minor_rows:
                             row = nearest_major+i
                             break
-                    ### move all widgets below this one down a row to stop overlaps
             except:
                 pass
             configs = (35, 'nes')
         else:
             row = (len(major_rows)*10)+10
+            while row in taken:
+                row += 10
             # leave the first 10 rows reserved because I don't want to deal with them
             # the labels at the top are packed to row 1 and I don't want to offset
             # all my calculations by 1 because that's ugly
@@ -232,18 +243,16 @@ class FilterManager(tk.Frame):
         if focus:
             e.focus()
         row = e.grid_info()['row']
-        bg='white'
-        if row%10==0 or row==10:
-            if (row/10)%2==0:
-                bg='#d9d9d9'
-        elif row%2==0:
-            bg = '#d9d9d9'
-        e.config(bg=bg)
 
-        a = 1
+        if not sub:
+            f = tk.Entry(self, bd=1, width=int(configs[0]/2), name=f'labelr{row}c{1}')
+            f.insert(0, item['label'])
+            f.grid(row=row, column=1, sticky='nesw')
+
+        a = 2
         ret = []
         for i in (item['from'], item['cc'], item['bcc'], item['subject'], item['body'], item['all_match'], item['exact_match']):
-            cb = tk.Checkbutton(self, bg=bg, bd=0, name=f'checkbuttonr{row}c{a}')
+            cb = tk.Checkbutton(self, bd=0, name=f'checkbuttonr{row}c{a}')
             cb.variable = tk.BooleanVar()
             cb.config(variable = cb.variable)
             cb.grid(row=row, column=a, sticky='nesw')
@@ -252,6 +261,11 @@ class FilterManager(tk.Frame):
             ret.append(cb)
             a+=1
         tk.Button(self, text='Delete', relief='groove', command=lambda:self.remove_row(row)).grid(row=row, column=a, sticky='nesw')
+
+        if type(self.master) == ScrollableFrame:
+            if all(row>=i for i in self.rows()):
+                quick_thread(lambda:[time.sleep(0.1),self.master.yview_moveto(1)])
+
         return e, *ret
     def remove_row(self, row, update=True):
         try:
@@ -267,20 +281,7 @@ class FilterManager(tk.Frame):
                         self.remove_row(row+i+1, update=False)
 
             if update:
-                a=0
-                for i in range(10, self.grid_size()[1]):
-                    bg='white'
-                    if a%10==0 or a==0:
-                        if (a/10)%2==0:
-                            bg='#d9d9d9'
-                    elif a%2==0:
-                        bg = '#d9d9d9'
-
-                    if len(self.grid_slaves(row=i))>0:
-                        for w in self.grid_slaves(row=i):
-                            w.config(bg=bg)
-                            w.update()
-                        a+=1
+                self.update_colours()
 
         except tk.TclError:
             pass
@@ -306,9 +307,9 @@ class FilterManager(tk.Frame):
 
                 for r in candidates:
                     row = self.get_row(r)
-                    if row!=False and row['search'] == '' and all(row[k]==False for k,v in row.items() if 'match' not in k and type(v)==bool):
+                    if row!=False and row['search'] == '':
                         for w in self.grid_slaves(r):
-                            if type(w)==tk.Entry:
+                            if type(w)==tk.Entry and 'label' not in w._name:
                                 w.focus()
                                 return
                 # if there are no un-filled entries then create one
@@ -316,6 +317,7 @@ class FilterManager(tk.Frame):
             except IndexError:
                 # if there are no un-filled entries then create one
                 self._create(self._format_filter(None), focus=True, sub=sub)
+        self.update_colours()
     def load_filters(self):
         for i in self.grid_slaves():
             if i not in self.top_bar:
@@ -326,18 +328,19 @@ class FilterManager(tk.Frame):
             if 'sub_filters' in i.keys():
                 for sub in i['sub_filters']:
                     self._create(self._format_filter(sub), sub=True)
+        self.update_colours()
     def get_filters(self):
         config = []
 
         for row in self.rows():
             if row%10==0:
                 setting = self.get_row(row)
-                if setting!={} and not(setting['search']=='' and all(i==0 for i in setting.values() if type(i)==int)):
+                if setting!={} and not setting['search']=='':
                     config.append(self._format_filter(setting))
         return config
     def rows(self):
         rows = []
-        for i in range(1, self.grid_size()[1]):
+        for i in range(10, self.grid_size()[1]):
             if len(self.grid_slaves(row=i))>0:
                 rows.append(i)
         return rows
@@ -348,7 +351,7 @@ class FilterManager(tk.Frame):
             row = self.rows()[row]
 
         for widget in self.grid_slaves(row=row):
-            if type(widget) == tk.Entry:
+            if type(widget) == tk.Entry and 'label' not in widget._name:
                 setting['search'] = widget.get()
                 if widget.grid_info()['row']%10==0:
                     sub_filters = []
@@ -357,9 +360,11 @@ class FilterManager(tk.Frame):
                         if tmp!=False and 'sub_filters' not in tmp.keys():
                             sub_filters.append(tmp)
                     setting['sub_filters'] = sub_filters
+            elif type(widget) == tk.Entry and 'label' in widget._name:
+                setting['label'] = widget.get()
             elif f'checkbutton' in widget._name:
                 name = int(widget._name[-1])
-                setting[names[name-1]] = widget.variable.get()
+                setting[names[name-2]] = widget.variable.get()
 
         if setting=={}:
             return False
@@ -367,6 +372,22 @@ class FilterManager(tk.Frame):
             return self._format_filter(setting, sub=True)
         else:
             return self._format_filter(setting)
+    def update_colours(self):
+        a=0
+        for i in range(10, self.grid_size()[1]):
+            bg='white'
+            if a%10==0 or a==0:
+                if (a/10)%2==0 or a//10 == 1:
+                    bg='#d9d9d9'
+            elif a%2==0:
+                bg = '#d9d9d9'
+
+            if len(self.grid_slaves(row=i))>0:
+                for w in self.grid_slaves(row=i):
+                    if w['bg']!=bg:
+                        w.config(bg=bg)
+                        w.update()
+                a+=1
 
 class Window():
     def __init__(self):
@@ -403,8 +424,7 @@ class Window():
 
         self.filter_manager = FilterManager(tmp, bd=0, highlightthickness=0)
         self.filter_manager.pack(**dk)
-        #self.filter_manager.pack(side='top', fill='both', expand=True)
-        tk.Button(self.blocking_frame, text='Add blocking rule', command=lambda:[self.filter_manager.add_row(),tmp.children_bind_scroll()], relief='groove').pack(**dk)
+        tk.Button(self.blocking_frame, text='Add blocking rule', command=lambda:[self.filter_manager.add_row(), tmp.children_bind_scroll()], relief='groove').pack(**dk)
         tk.Button(self.blocking_frame, text='Add blocking sub-rule', command=lambda:[self.filter_manager.add_row(sub=True),tmp.children_bind_scroll()], relief='groove').pack(**dk)
 
         self.actions_frame = tk.Frame(self.root)

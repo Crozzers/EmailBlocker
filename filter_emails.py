@@ -7,14 +7,18 @@ https://gist.github.com/giovaneliberato/b3ebce305262888633c1
 '''
 
 class Server():
-    TRASH = '\\Trash'
-    def __init__(self, url='imap.gmail.com'):
+    def __init__(self, username=None, password=None, url='imap.gmail.com'):
         '''
         Initialize the server
         '''
         self.logged_in = False
         self.server = imaplib.IMAP4_SSL(url)
-    def __enter__(self):
+        if username is not None and password is not None:
+            self.login(username, password)
+    def __enter__(self, username=None, password=None, label='inbox'):
+        if username is not None and password is not None:
+            self.login(username, password)
+            self.select_label(label)
         return self
     def login(self, username, password):
         self.server.login(username, password)
@@ -23,7 +27,31 @@ class Server():
         '''
         Select folder to search from
         '''
-        self.server.select(label)
+        out = self.server.select(label)
+        if out[0] == 'OK':
+            return
+
+        all_labels = self.get_labels()
+        for k in all_labels.keys():
+            if k.lower() == label.lower():
+                out = self.server.select(all_labels[k])
+                if out[0] == 'OK':
+                    return
+
+        raise Exception(out[1].decode())
+    def get_labels(self):
+        raw = self.server.list()[1]
+        labels = {}
+        for r in raw:
+            v = r.decode().replace('"', '').split('/', 1)[1].lstrip(' ')
+            if v=='[Gmail]':
+                continue
+            if v.startswith('[Gmail]/'):
+                k = v.replace('[Gmail]/', '')
+            else:
+                k = v
+            labels[k] = v
+        return labels
     def search(self, query, from_=False, cc=False, bcc=False, subject=False, body=False, all_match=True, exact_match=True, sub_filters = [], **kwargs):
         '''
         Searches the current label for emails matching the query
@@ -173,16 +201,20 @@ class Server():
             email_id = email_id['id']
         if type(email_id)!=bytes:
             raise TypeError('email must be bytes id')
-        self.server.store(email_id, '+X-GM-LABELS', self.TRASH)
+        self.server.store(email_id, '+X-GM-LABELS', '\\Trash')
         self.server.expunge()
     def __exit__(self, *args,**kwargs):
         self.close()
     def close(self):
         if self.logged_in:
-            self.server.close()
+            try:
+                self.server.close()
+            except:
+                pass
             self.server.logout()
         self.logged_in = False
 
 def email_valid(email):
-    #return re.fullmatch(r'[^@]+@[^@]+\.[^@]+', email)
-    return re.fullmatch(r'\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b', email, re.I)
+    return re.fullmatch(EMAIL_REGEX, email)
+
+EMAIL_REGEX = re.compile(r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)")

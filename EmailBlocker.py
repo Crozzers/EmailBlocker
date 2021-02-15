@@ -305,15 +305,17 @@ def run():
                 output(f'Failed to log in: {e}', 'red')
                 return
 
-            output(f'Selecting inbox')
-            server.select_label('inbox')
-
             email_ids = []
             for filter in config['filters']:
-                output(f'Searching for emails that match "{filter["search"]}"')
-                email_ids+=server.search(
-                    filter['search'], **filter
-                )
+                output(f'Searching for emails that match "{filter["search"]}" in label "{filter["label"]}"')
+                try:
+                    server.select_label(filter['label'])
+                except Exception as e:
+                    output(f'Failed to select label "{filter["label"]}": {e}', 'red')
+                else:
+                    email_ids+=server.search(
+                        filter['search'], **filter
+                    )
 
             output(f'Found {len(email_ids)} email{"s" if len(email_ids)>1 or len(email_ids)==0 else ""}')
 
@@ -425,7 +427,7 @@ def check_for_update():
                     output('No updates are available')
 
 def validate_filter(filter: dict, sub=False):
-    for i in (('search', ''), ('from', False), ('cc', False), ('bcc', False), ('subject', False), ('body', False), ('all_match', True), ('exact_match', True)):
+    for i in (('search', ''), ('from', False), ('cc', False), ('bcc', False), ('subject', False), ('body', False), ('label', 'Inbox'), ('all_match', True), ('exact_match', True)):
         if i[0] not in filter.keys():
             filter[i[0]] = i[1]
         elif type(filter[i[0]])!=type(i[1]):
@@ -436,6 +438,9 @@ def validate_filter(filter: dict, sub=False):
         # only allow the sub-filtering to go 1 level deep
         if 'sub_filters' in filter.keys():
             del(filter['sub_filters'])
+        # only top-level filters can have the 'label' property
+        if 'label' in filter.keys():
+            del(filter['label'])
     else:
         if 'sub_filters' not in filter.keys() or type(filter['sub_filters'])!=list:
             filter['sub_filters'] = []
