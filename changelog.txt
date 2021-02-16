@@ -1,3 +1,14 @@
+# v0.6.0
+Added filtering sub-rules
+Filter manager is now scrollable
+Fixed startup tasks having settings overwritten
+Added ability to change the Gmail label being searched
+Added an email deletion confirmation prompt
+Added docstrings and flake8 formatted the code
+Fixed exact matching when filtering by sender
+Improved email validator
+Fixed some email subjects not getting decoded
+
 # v0.5.0
 Removed all pyinstaller compiled EXE's
 Added portable Python installation with pip and tkinter pre-installed
