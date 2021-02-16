@@ -1,7 +1,7 @@
 # EmailBlocker
 Deletes emails from blacklisted addresses (Gmail only)
 
-Are you a student? Do you have a school/college email? Are you tired of recieving borderline spam emails from your place of education?
+Are you a student? Do you have a school/college email? Are you tired of receiving borderline spam emails from your place of education?
 Does your school's GSuite policies make it impossible for you to actually block people?
 ![Tired of this?](img/spam-notice.png)
 
@@ -12,7 +12,7 @@ Well I (possibly) have a solution for you! This program will run through your in
 First you have to enable 'less secure app access' in your google account settings.
 If your school has had the common sense to lock this setting down then I'm sorry but it's too late for you.
 
-* Go to your school email inbox, click on your profile picture in the top right corner and click on 'Manage Accout Settings'  
+* Go to your school email inbox, click on your profile picture in the top right corner and click on 'Manage Account Settings'  
 ![Step 1](img/setup-manage-account.png)
 * Search 'less secure app access' in the search bar and hit enter  
 ![Step 2](img/setup-search.png)
@@ -28,7 +28,7 @@ If your school has had the common sense to lock this setting down then I'm sorry
 If you want to read the source code for this program it is contained within the '.py' files.
 
 ### Things to note
-* This program may get flagged as a virus. This is because the app isnt "signed" (verified) in any way.
+* This program may get flagged as a virus. This is because the app isn't "signed" (verified) in any way.
 * If you use the options "Save settings" or "Run at startup" then your credentials will be stored in a plain text file.
 
 ## Usage
@@ -47,6 +47,10 @@ Here is where you will create the set of rules that the program will use to sele
 **Search Term**:  
 The search term is what you are searching to filter out. This could be anything like an email address, a key word/phrase or a specific block of text.
 This is the string that the program will search for in the various fields you tell it to (specified next). If a field contains your search term then that email will be deleted
+
+**Label**:  
+Which label that rule will search from. The default is your inbox but you can specify other Gmail labels such as "Starred" or "All Mail".  
+Note: Due to the way Gmail groups messages, some messages can be accessed from multiple labels (eg: messages in Starred also appear under Inbox)
 
 **From**:  
 When this box is checked then any emails with a sender that matches your search term will be deleted.  
@@ -79,9 +83,15 @@ Does not delete the emails. It deletes that specific rule.
 **Add blocking rule**:  
 Spawns a new row (or focuses on an empty one) for you to add a rule to. You can add as many as you want but the window doesn't have a scrollbar so don't add too many
 
+**Add blocking sub-rule**:  
+Adds a row underneath the rule that you are currently focused on (where the text cursor is) that is used in combination with that rule.  
+So a setup like this:
+![Example sub filter rule](img/usage-sub-filter-rules.png)
+Would filter emails from "johnsmith@gmail.com" that have "Sales Pitch #1" in the subject and "Would you like to buy" in the body of the email
+
 
 **Note**:  
-Any categories that usually require email addresses (From, CC and BCC) must have a valid email address given to them. A query like `joe@example.com` will return all emails concerning that address, as expected. A query like `joe`, while not a valid email addrress, will return all emails concerning email addresses that start with the word `joe`. However, a search like `joe@example` will return nothing because that is an invalid email address.  
+Any categories that usually require email addresses (From, CC and BCC) must have a valid email address given to them. A query like `joe@example.com` will return all emails concerning that address, as expected. A query like `joe`, while not a valid email address, will return all emails concerning email addresses that start with the word `joe`. However, a search like `joe@example` will return nothing because that is an invalid email address.  
 This is just down to how the gmail search algorithm works.
 
 ### Step 3: Saving settings
@@ -107,13 +117,13 @@ Just in case the program goes rogue and deletes all your emails.
 If that does happen (unlikely) then emails usually aren't deleted right away. They usually get moved to the "trash" folder. If you need those emails back, go there and move them back to the inbox
 
 **Run**:  
-This will take the configuration you have currently, not the save file but your currrent on-screen settings, and run through your inbox deleting the relevant emails.
+This will take the configuration you have currently, not the save file but your current on-screen settings, and run through your inbox deleting the relevant emails.
 I suggest that if you run this you should go to your gmail's "trash" folder and double-check that the correct emails were in fact blocked to ensure that the settings you have configured will have the desired effect.
 
 **Run the current config when the computer starts** [Windows Only]:  
 Create a script that will run this program whenever you sign into your account.  
 
-It will create a the folder `~\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\EmailBlockerLite` and copy the embedded python interpreter, `EmailBlockerLite.py` and `filter_emails.py` to that directory. Then, similar to the run button, this will take the configuration you have currently (not the save file but your currrent on-screen settings) but it will save them to another `settings.json` file in the newly created directory.  
+It will create a the folder `~\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\EmailBlockerLite` and copy the embedded python interpreter, `EmailBlockerLite.py` and `filter_emails.py` to that directory. Then, similar to the run button, this will take the configuration you have currently (not the save file but your current on-screen settings) but it will save them to another `settings.json` file in the newly created directory.  
 Finally, it creates the file `~\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\EmailBlocker.bat`, which will run the program.
 
 **Remove startup tasks** [Windows Only]:  

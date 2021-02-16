@@ -1,13 +1,26 @@
-import argparse, sys, os, json
+import argparse
+import sys
+import os
+import json
 sys.path.append(os.path.dirname(__file__))
-import imaplib, re
 import filter_emails
 
+
 def validate_filter(filter: dict, sub=False):
-    for i in (('search', ''), ('from', False), ('cc', False), ('bcc', False), ('subject', False), ('body', False), ('label', 'Inbox'), ('all_match', True), ('exact_match', True)):
+    for i in (
+        ('search', ''),
+        ('from', False),
+        ('cc', False),
+        ('bcc', False),
+        ('subject', False),
+        ('body', False),
+        ('label', 'Inbox'),
+        ('all_match', True),
+        ('exact_match', True)
+    ):
         if i[0] not in filter.keys():
             filter[i[0]] = i[1]
-        elif type(filter[i[0]])!=type(i[1]):
+        elif type(filter[i[0]]) != type(i[1]):
             raise TypeError(f'filter key "{i[0]}" contains invalid type {type(filter[i[0]])}, expected {type(i[1])}')
         else:
             pass
@@ -19,7 +32,7 @@ def validate_filter(filter: dict, sub=False):
         if 'label' in filter.keys():
             del(filter['label'])
     else:
-        if 'sub_filters' not in filter.keys() or type(filter['sub_filters'])!=list:
+        if 'sub_filters' not in filter.keys() or type(filter['sub_filters']) != list:
             filter['sub_filters'] = []
         else:
             sub_filters = []
@@ -28,13 +41,14 @@ def validate_filter(filter: dict, sub=False):
             filter['sub_filters'] = sub_filters
     return filter
 
-def validate_config(config:dict):
+
+def validate_config(config: dict):
     for i in ('user_email', 'user_password', 'filters'):
         if i not in config.keys():
             raise Exception(f'Invalid configuration. Missing key: {i}')
     if not filter_emails.email_valid(config['user_email']):
         raise ValueError('Invalid user email')
-    if config['user_password']=='':
+    if config['user_password'] == '':
         raise ValueError('Invalid password')
     filters = []
     for filter in config['filters']:
@@ -42,23 +56,57 @@ def validate_config(config:dict):
     config['filters'] = filters
     return config
 
-__version__ = '0.6.0-dev'
-__author__='Crozzers'
 
-if __name__=='__main__':
+__version__ = '0.6.0-dev'
+__author__ = 'Crozzers'
+
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Deletes annoying emails from people you can\'t block')
 
-    parser.add_argument('-f', '--file', action='store_true', help='Load filter settings from stored settings.json file')
-    parser.add_argument('--email', required=False, type=str, help='Your email address')
-    parser.add_argument('--password', required=False, type=str, help='Your password')
-    parser.add_argument('--filter', required=False, type=str, help='The string to filter out (seperate multiple values with commas)')
-    parser.add_argument('--sender', action='store_true', help='Filter by sender')
-    parser.add_argument('--cc', action='store_true', help='Filter by CC')
-    parser.add_argument('--bcc', action='store_true', help='Filter by BCC')
-    parser.add_argument('--subject', action='store_true', help='Filter by subject')
-    parser.add_argument('--body', action='store_true', help='Filter by contents of body')
-    parser.add_argument('--no-exact-match', action='store_true', help='Filter if the field contains the search term even if the two don\'t completely match')
-    parser.add_argument('--no-all-match', action='store_true', help='The query doesn\'t have to appear in ALL specified fields, just one of them')
+    parser.add_argument(
+        '-f', '--file', action='store_true',
+        help='Load filter settings from stored settings.json file'
+    )
+    parser.add_argument(
+        '--email', required=False, type=str,
+        help='Your email address'
+    )
+    parser.add_argument(
+        '--password', required=False, type=str,
+        help='Your password'
+    )
+    parser.add_argument(
+        '--filter', required=False, type=str,
+        help='The string to filter out (separate multiple values with commas)'
+    )
+    parser.add_argument(
+        '--sender', action='store_true',
+        help='Filter by sender'
+    )
+    parser.add_argument(
+        '--cc', action='store_true',
+        help='Filter by CC'
+    )
+    parser.add_argument(
+        '--bcc', action='store_true',
+        help='Filter by BCC'
+    )
+    parser.add_argument(
+        '--subject', action='store_true',
+        help='Filter by subject'
+    )
+    parser.add_argument(
+        '--body', action='store_true',
+        help='Filter by contents of body'
+    )
+    parser.add_argument(
+        '--no-exact-match', action='store_true',
+        help='Filter if the field contains the search term even if the two don\'t completely match'
+    )
+    parser.add_argument(
+        '--no-all-match', action='store_true',
+        help='The query doesn\'t have to appear in ALL specified fields, just one of them'
+    )
 
     args = parser.parse_args()
 
@@ -70,10 +118,10 @@ if __name__=='__main__':
             print(f'Failed to load settings.json: {e}')
             sys.exit(1)
     else:
-        if any(getattr(args, i)==None for i in ('email', 'password', 'filter')):
+        if any(getattr(args, i) is None for i in ('email', 'password', 'filter')):
             print('--email, --password and --filter arguments are required')
             sys.exit(1)
-        elif all(getattr(args, i)==False for i in ('sender', 'cc', 'bcc', 'subject', 'body')):
+        elif all(getattr(args, i) is False for i in ('sender', 'cc', 'bcc', 'subject', 'body')):
             print('At least one category to filter by is required')
             sys.exit(1)
         else:
@@ -92,8 +140,10 @@ if __name__=='__main__':
                         'bcc': args.bcc,
                         'subject': args.subject,
                         'body': args.body,
-                        'all_match': not args.no_all_match, # we do NOT args.no_all_match because the default choice is "use ALL matches" and if "not all matches" is True, we need to invert it
-                        'exact_match': not args.no_exact_match # same here
+                        'all_match': not args.no_all_match,
+                        # we invert args.no_all_match because the default choice is "use ALL matches"
+                        # so if "use all matches" is true then "don't use all matches" needs to be false
+                        'exact_match': not args.no_exact_match  # same here
                     }
                 )
             try:
@@ -101,7 +151,6 @@ if __name__=='__main__':
             except Exception as e:
                 print(f'Failed to parse config: {e}')
                 sys.exit(1)
-
 
     with filter_emails.Server() as server:
         print(f'Logging into GMAIL with user {config["user_email"]}')
@@ -119,9 +168,9 @@ if __name__=='__main__':
             except Exception as e:
                 print(f'Failed to select label "{filter["label"]}": {e}')
             else:
-                email_ids+=server.search(
+                email_ids += server.search(
                     filter['search'],
-                    from_ = filter['from'],
+                    from_=filter['from'],
                     cc=filter['cc'],
                     bcc=filter['bcc'],
                     subject=filter['subject'],
@@ -130,11 +179,16 @@ if __name__=='__main__':
                     exact_match=filter['exact_match']
                 )
 
-        print(f'Found {len(email_ids)} email{"s" if len(email_ids)>1 or len(email_ids)==0 else ""}')
+        print(f'Found {len(email_ids)} email{"s" if len(email_ids) > 1 or len(email_ids) == 0 else ""}')
 
-        if len(email_ids)>0:
+        if len(email_ids) > 0:
             for i in range(len(email_ids)):
-                print(f'Sending {len(email_ids)} email{"s" if len(email_ids)>1 else ""} to the bin ({i+1}/{len(email_ids)})')
+                print(
+                    (
+                        f'Sending {len(email_ids)} email{"s" if len(email_ids) > 1 else ""}'
+                        f' to the bin ({i + 1}/{len(email_ids)})'
+                    )
+                )
                 server.delete_email(email_ids[i])
 
         print('Done!')
