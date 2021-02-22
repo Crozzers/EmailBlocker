@@ -331,6 +331,7 @@ class StartupTask:
     appdata_dir = pjoin(appdata_dir, 'EmailBlockerLite').replace('\\', '/')
     basedir = os.path.dirname(__file__)
 
+    @staticmethod
     def create():
         '''
         Creates the EmailBlocker startup task in the users AppData dir
@@ -381,6 +382,7 @@ class StartupTask:
             traceback.print_exc()
             output(f'Failed to create startup task: {e}', 'red')
 
+    @staticmethod
     def destroy():
         '''
         Removes the EmailBlocker startup task from the users AppData dir
@@ -400,6 +402,7 @@ class StartupTask:
         except Exception as e:
             output(f'Failed to remove startup task: {e}')
 
+    @staticmethod
     def repair():
         '''
         Attempts to do one of 2 things
@@ -534,14 +537,22 @@ def run(skip_confirm=False):
                             else:
                                 print('Invalid respone\n')
                 if msg_box or skip_confirm:
-                    for i in range(len(email_ids)):
-                        output(
-                            (
-                                f'Sending {len(email_ids)} email{"s" if len(email_ids) > 1 else ""}'
-                                f' to the bin ({i+1}/{len(email_ids)})'
+                    a = 1
+                    to_remove = email_ids.copy()
+                    while True:
+                        for i in range(len(email_ids)):
+                            output(
+                                (
+                                    f'Sending {len(to_remove)} email{"s" if len(to_remove) > 1 else ""}'
+                                    f' to the bin ({i+1}/{len(to_remove)}) [Pass: {a}]'
+                                )
                             )
-                        )
-                        server.delete_email(email_ids[i])
+                            server.delete_email(to_remove[i], expunge=True)
+                        server.expunge()
+                        to_remove = [i for i in to_remove if i in server.get_email_ids()]
+                        if to_remove == []:
+                            break
+                        a += 1
                 else:
                     output('Cancelled. Removed 0 emails', 'green')
                     return
@@ -559,8 +570,10 @@ def check_for_update():
     Checks for updates to this program and installs them if the user wishes
     '''
     output('Checking')
-    url = 'https://github.com/Crozzers/EmailBlocker/blob/master/EmailBlocker.py?raw=true'
-    ret = makeHTTPRequest(url)
+    url = 'https://github.com/Crozzers/EmailBlocker/blob/{}/EmailBlocker.py?raw=true'
+    ret = makeHTTPRequest(url.format('master'))
+    if ret is False:
+        ret = makeHTTPRequest(url.format('main'))
     if ret is False:
         output('Error: Failed to reach GitHub servers', 'red')
     else:
@@ -734,7 +747,7 @@ def validate_config(config: dict):
     return config
 
 
-__version__ = '0.6.0-dev'
+__version__ = '0.7.0-dev'
 __author__ = 'Crozzers'
 
 if __name__ == '__main__':

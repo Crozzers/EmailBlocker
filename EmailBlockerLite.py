@@ -57,7 +57,7 @@ def validate_config(config: dict):
     return config
 
 
-__version__ = '0.6.0-dev'
+__version__ = '0.7.0-dev'
 __author__ = 'Crozzers'
 
 if __name__ == '__main__':

@@ -281,7 +281,7 @@ class Server():
         else:
             return [i for i in self.__get_emails_by_id(id)]
 
-    def delete_email(self, email_id):
+    def delete_email(self, email_id, expunge=True):
         '''
         Deletes an email
 
@@ -293,6 +293,10 @@ class Server():
         if type(email_id) != bytes:
             raise TypeError('email must be bytes id')
         self.server.store(email_id, '+X-GM-LABELS', '\\Trash')
+        if expunge:
+            self.server.expunge()
+
+    def expunge(self):
         self.server.expunge()
 
     def __exit__(self, *args, **kwargs):
