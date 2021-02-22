@@ -540,7 +540,7 @@ def run(skip_confirm=False):
                     a = 1
                     to_remove = email_ids.copy()
                     while True:
-                        for i in range(len(email_ids)):
+                        for i in range(len(to_remove)):
                             output(
                                 (
                                     f'Sending {len(to_remove)} email{"s" if len(to_remove) > 1 else ""}'
