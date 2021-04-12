@@ -81,13 +81,14 @@ This is the equivalent of typing the query into the gmail search bar and deletin
 Does not delete the emails. It deletes that specific rule.
 
 **Add blocking rule**:  
-Spawns a new row (or focuses on an empty one) for you to add a rule to. You can add as many as you want but the window doesn't have a scrollbar so don't add too many
+Spawns a new row (or focuses on an empty one) for you to add a rule to. You can add as many as you want.
 
 **Add blocking sub-rule**:  
 Adds a row underneath the rule that you are currently focused on (where the text cursor is) that is used in combination with that rule.  
 So a setup like this:
 ![Example sub filter rule](img/usage-sub-filter-rules.png)
-Would filter emails from "johnsmith@gmail.com" that have "Sales Pitch #1" in the subject and "Would you like to buy" in the body of the email
+Would filter emails from "johnsmith@gmail.com" that have "Sales Pitch #1" in the subject and "Would you like to buy" in the body of the email.  
+You can add up to 9 sub-rules to be used per regular rule.
 
 
 **Note**:  
