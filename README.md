@@ -53,12 +53,12 @@ Which label that rule will search from. The default is your inbox but you can sp
 Note: Due to the way Gmail groups messages, some messages can be accessed from multiple labels (eg: messages in Starred also appear under Inbox)
 
 **From**:  
-When this box is checked then any emails with a sender that matches your search term will be deleted.  
-See the NOTE at the end for a of couple details related to this
+When this box is checked any emails with a sender that matches your search term will be deleted.  
+See the NOTE at the end for a couple details related to this
 
 **CC and BCC**:  
 If either of these boxes are checked then any emails with your search term in the CC or BCC fields are deleted.  
-See the NOTE at the end for a of couple details related to this
+See the NOTE at the end for a couple details related to this
 
 **Subject**:  
 If checked, any emails with your search term as the subject will be deleted
@@ -71,7 +71,7 @@ This means that if you have selected the subject and body checkboxes then emails
 If this option is not checked then emails that match EITHER criteria are deleted
 
 **Must match the search exactly**:  
-If checked then for an email to be filtered it must have whatever field of information match your search term EXACTLY.  
+For an email to be filtered (when this box is checked) it must have whatever field of information match your search term EXACTLY.  
 For example, if you were searching by subject for "Leaf Blowers" then emails with that exact subject would be deleted but subjects like "Cool Leaf Blowers", "leaf blowers" and "concert tickets" would not be deleted.
 
 If this option is disabled then if the email's field of information CONTAINS your search query, it will be deleted.
